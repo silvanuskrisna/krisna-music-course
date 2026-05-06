@@ -243,7 +243,7 @@ const STRINGS = {
 };
 
 function defaultData() {
-  return { profiles: [], activeId: null };
+  return { profiles: [], activeId: null, activeIds: [] };
 }
 
 function loadTheme() {
@@ -419,6 +419,27 @@ function getTodayLessonProfiles(profiles) {
   return profiles
     .filter(function(profile) { return profile.lessonDay === normalizedToday; })
     .sort(function(a, b) { return normalizeLessonTime(a.lessonTime).localeCompare(normalizeLessonTime(b.lessonTime)); });
+}
+
+function getLessonGroupKey(profile) {
+  return [profile.lessonDay || "", normalizeLessonTime(profile.lessonTime)].join("|");
+}
+
+function getTodayLessonGroups(profiles) {
+  const groups = {};
+  getTodayLessonProfiles(profiles).forEach(function(profile) {
+    const key = getLessonGroupKey(profile);
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(profile);
+  });
+  return Object.keys(groups).map(function(key) {
+    const profilesInGroup = groups[key];
+    return {
+      key: key,
+      time: normalizeLessonTime(profilesInGroup[0].lessonTime),
+      profiles: profilesInGroup,
+    };
+  }).sort(function(a, b) { return a.time.localeCompare(b.time); });
 }
 
 function getDefaultLessonMaterial(instrument) {
@@ -776,13 +797,13 @@ function LanguageSwitch({ lang, onChange }) {
   );
 }
 
-function HomeScreen({ data, onSelect, onAdd, onDelete, syncStatus, theme, onToggleTheme, lang, onChangeLang, t }) {
+function HomeScreen({ data, onSelect, onSelectGroup, onAdd, onDelete, syncStatus, theme, onToggleTheme, lang, onChangeLang, t }) {
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState("");
   const [newInstrument, setNewInstrument] = useState("Gitar");
   const [newLessonDay, setNewLessonDay] = useState("Senin");
   const [newLessonTime, setNewLessonTime] = useState("16:00");
-  const todaysLessons = getTodayLessonProfiles(data.profiles);
+  const todaysLessonGroups = getTodayLessonGroups(data.profiles);
 
   function handleAdd() {
     if (!newName.trim()) return;
@@ -818,21 +839,22 @@ function HomeScreen({ data, onSelect, onAdd, onDelete, syncStatus, theme, onTogg
       {data.profiles.length > 0 && (
         <div style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-lg)", padding:"1rem", marginBottom:"1rem" }}>
           <div style={{ fontSize:13, fontWeight:600, color:"var(--color-text-primary)", marginBottom:8 }}>{t("todayAgenda")}</div>
-          {todaysLessons.length === 0 ? (
-            <div style={{ fontSize:12, color:"var(--color-text-tertiary)" }}>{t("noLessonsToday")}</div>
-          ) : (
-            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-              {todaysLessons.map(function(profile) {
-                const inst = profile.defaultInstrument || "Gitar";
-                return (
-                  <button key={profile.id} onClick={function() { onSelect(profile.id); }}
-                    style={{ display:"flex", alignItems:"center", gap:8, textAlign:"left", padding:"8px 10px", background:"var(--color-background-primary)", border:"0.5px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-md)", cursor:"pointer", color:"var(--color-text-primary)" }}>
-                    <span>{INST_ICON[inst] || "🎵"}</span>
-                    <span style={{ flex:1, fontSize:13 }}>{profile.name}</span>
-                    <span style={{ fontSize:12, color:"var(--color-text-secondary)" }}>{normalizeLessonTime(profile.lessonTime)}</span>
-                  </button>
-                );
-              })}
+	          {todaysLessonGroups.length === 0 ? (
+	            <div style={{ fontSize:12, color:"var(--color-text-tertiary)" }}>{t("noLessonsToday")}</div>
+	          ) : (
+	            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+	              {todaysLessonGroups.map(function(group) {
+	                const inst = group.profiles[0].defaultInstrument || "Gitar";
+	                const names = group.profiles.map(function(profile) { return profile.name; }).join(", ");
+	                return (
+	                  <button key={group.key} onClick={function() { onSelectGroup(group.profiles.map(function(profile) { return profile.id; })); }}
+	                    style={{ display:"flex", alignItems:"center", gap:8, textAlign:"left", padding:"8px 10px", background:"var(--color-background-primary)", border:"0.5px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-md)", cursor:"pointer", color:"var(--color-text-primary)" }}>
+	                    <span>{INST_ICON[inst] || "🎵"}</span>
+	                    <span style={{ flex:1, fontSize:13 }}>{names}</span>
+	                    <span style={{ fontSize:12, color:"var(--color-text-secondary)" }}>{group.time}</span>
+	                  </button>
+	                );
+	              })}
             </div>
           )}
         </div>
@@ -1006,6 +1028,56 @@ function TrackerScreen({ profile, updateProfile, onBack, syncStatus, theme, onTo
   );
 }
 
+function GroupTrackerScreen({ profiles, updateGroupProfiles, onBack, syncStatus, theme, onToggleTheme, lang, onChangeLang, t }) {
+  const groupName = profiles.map(function(profile) { return profile.name; }).join(", ");
+  const firstProfile = profiles[0];
+  const sameInstrument = profiles.every(function(profile) { return profile.defaultInstrument === firstProfile.defaultInstrument; });
+  const groupProfile = {
+    id: "group-" + profiles.map(function(profile) { return profile.id; }).join("-"),
+    name: groupName,
+    defaultInstrument: sameInstrument ? firstProfile.defaultInstrument : (firstProfile.defaultInstrument || "Gitar"),
+    lessonDay: firstProfile.lessonDay || "",
+    lessonTime: firstProfile.lessonTime || "",
+    weeklyTarget: firstProfile.weeklyTarget || 300,
+    sessions: [],
+  };
+
+  function updateGroupProfile(fn) {
+    const nextGroupProfile = fn(groupProfile);
+    const newSessions = nextGroupProfile.sessions || [];
+    if (newSessions.length === 0) return;
+    updateGroupProfiles(function(profile) {
+      return Object.assign({}, profile, {
+        sessions: profile.sessions.concat(newSessions.map(function(session) {
+          return Object.assign({}, session, {
+            id: newId(),
+            instrument: profile.defaultInstrument || session.instrument,
+          });
+        })),
+      });
+    });
+  }
+
+  return (
+    <div className="app-shell" style={{ fontFamily:"var(--font-sans)", maxWidth:520, margin:"0 auto", padding:"1rem" }}>
+      <div className="tracker-header" style={{ display:"flex", alignItems:"center", gap:10, marginBottom:"1rem" }}>
+        <button aria-label={t("back")} onClick={onBack} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--color-text-secondary)", fontSize:18, padding:0 }}>←</button>
+        <div style={{ flex:1 }}>
+          <div style={{ fontWeight:500, fontSize:16, color:"var(--color-text-primary)" }}>{groupName}</div>
+          <div style={{ fontSize:12, color:"var(--color-text-secondary)", marginTop:2 }}>{t("lessonSchedule")}: {formatLessonSchedule(firstProfile, t)}</div>
+          <div className="tracker-sync-status" style={{ fontSize:11, color:"var(--color-text-tertiary)", marginTop:2 }}>{syncStatus}</div>
+        </div>
+        <LanguageSwitch lang={lang} onChange={onChangeLang} />
+        <ThemeSwitch theme={theme} onToggle={onToggleTheme} />
+      </div>
+      <div style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-lg)", padding:"0.85rem 1rem", marginBottom:"1rem", fontSize:12, color:"var(--color-text-secondary)" }}>
+        Sesi grup: hasil `Simpan Sesi` akan masuk ke {profiles.length} murid.
+      </div>
+      <TimerTab profile={groupProfile} updateProfile={updateGroupProfile} t={t} />
+    </div>
+  );
+}
+
 // ─── APP ROOT ────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -1060,7 +1132,12 @@ export default function App() {
   }, []);
 
   function handleSelect(id) {
-    update(function(prev) { return Object.assign({}, prev, { activeId: id }); });
+    update(function(prev) { return Object.assign({}, prev, { activeId: id, activeIds: [id] }); });
+  }
+
+  function handleSelectGroup(ids) {
+    const nextIds = ids && ids.length ? ids : [];
+    update(function(prev) { return Object.assign({}, prev, { activeId: nextIds[0] || null, activeIds: nextIds }); });
   }
 
   async function handleAdd(name, defaultInstrument, lessonDay, lessonTime) {
@@ -1086,6 +1163,7 @@ export default function App() {
       return {
         profiles: prev.profiles.concat([profile]),
         activeId: profile.id,
+        activeIds: [profile.id],
       };
     });
   }
@@ -1103,6 +1181,7 @@ export default function App() {
       return {
         profiles: prev.profiles.filter(function(p) { return p.id !== id; }),
         activeId: prev.activeId === id ? null : prev.activeId,
+        activeIds: (prev.activeIds || []).filter(function(activeId) { return activeId !== id; }),
       };
     });
   }
@@ -1128,7 +1207,50 @@ export default function App() {
     }
   }, [update, lang]);
 
-  const activeProfile = data.profiles.find(function(p) { return p.id === data.activeId; });
+  const updateGroupProfiles = useCallback(function(fn) {
+    let nextProfiles = [];
+    update(function(prev) {
+      const activeIds = prev.activeIds || [];
+      return Object.assign({}, prev, {
+        profiles: prev.profiles.map(function(p) {
+          if (activeIds.indexOf(p.id) === -1) return p;
+          const nextProfile = fn(p);
+          nextProfiles.push(nextProfile);
+          return nextProfile;
+        }),
+      });
+    });
+    nextProfiles.forEach(function(profile) {
+      syncSupabaseProfile(profile)
+        .then(function() { setSyncStatus(t("synced")); })
+        .catch(function(error) {
+          console.error(error);
+          setSyncStatus(t("syncFailed") + getErrorMessage(error));
+        });
+    });
+  }, [update, lang]);
+
+  const activeIds = data.activeIds && data.activeIds.length ? data.activeIds : (data.activeId ? [data.activeId] : []);
+  const activeProfiles = activeIds.map(function(id) {
+    return data.profiles.find(function(p) { return p.id === id; });
+  }).filter(Boolean);
+  const activeProfile = activeProfiles[0];
+
+  if (activeProfiles.length > 1) {
+    return (
+      <GroupTrackerScreen
+        profiles={activeProfiles}
+        updateGroupProfiles={updateGroupProfiles}
+        syncStatus={syncStatus}
+        theme={theme}
+        onToggleTheme={function() { setTheme(function(current) { return current === "dark" ? "light" : "dark"; }); }}
+        lang={lang}
+        onChangeLang={setLang}
+        t={t}
+        onBack={function() { update(function(prev) { return Object.assign({}, prev, { activeId: null, activeIds: [] }); }); }}
+      />
+    );
+  }
 
   if (activeProfile) {
     return (
@@ -1141,7 +1263,7 @@ export default function App() {
         lang={lang}
         onChangeLang={setLang}
         t={t}
-        onBack={function() { update(function(prev) { return Object.assign({}, prev, { activeId: null }); }); }}
+        onBack={function() { update(function(prev) { return Object.assign({}, prev, { activeId: null, activeIds: [] }); }); }}
       />
     );
   }
@@ -1150,6 +1272,7 @@ export default function App() {
     <HomeScreen
       data={data}
       onSelect={handleSelect}
+      onSelectGroup={handleSelectGroup}
       onAdd={handleAdd}
       onDelete={handleDelete}
       syncStatus={syncStatus}
