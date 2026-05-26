@@ -35,6 +35,8 @@ const MATERI = {
   },
 };
 
+const APP_VERSION = "1.0.0";
+
 const KAT_COLORS = {
   "Teknik Dasar": { bg:"var(--color-background-info)", text:"var(--color-text-info)", bar:"#378ADD" },
   "Repertoire":   { bg:"var(--color-background-success)", text:"var(--color-text-success)", bar:"#1D9E75" },
@@ -819,8 +821,11 @@ function HomeScreen({ data, onSelect, onSelectGroup, onAdd, onDelete, syncStatus
     <div className="app-shell" style={{ fontFamily:"var(--font-sans)", maxWidth:520, margin:"0 auto", padding:"1rem" }}>
       <div className="home-hero">
         <div>
-          <div className="eyebrow">{t("practiceStudio")}</div>
-          <h1 style={{ fontSize:26, fontWeight:700, margin:"0.2rem 0 0", color:"var(--color-text-primary)" }}>Music Practice Tracker</h1>
+          <div className="eyebrow">
+            {t("practiceStudio")}
+            <span style={{ marginLeft:8, fontSize:10, fontWeight:400, color:"var(--color-text-tertiary)" }}>v{APP_VERSION}</span>
+          </div>
+          <h1 style={{ fontSize:26, fontWeight:700, margin:"0.2rem 0 0", color:"var(--color-text-primary)" }}>Krisna Music Course</h1>
         </div>
         <div className="home-actions">
           <div className="sync-pill">{syncStatus}</div>
