@@ -985,32 +985,36 @@ function HomeScreen({ data, onSelect, onSelectGroup, onAdd, onDelete, onReschedu
         var profile = data.profiles.find(function(p) { return p.id === rescheduleId; });
         if (!profile) return null;
         return (
-          <div className="panel" style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-lg)", padding:"1rem", display:"flex", flexDirection:"column", gap:10, marginTop:12 }}>
-            <div style={{ fontSize:13, fontWeight:500, color:"var(--color-text-primary)" }}>↻ Reschedule: {profile.name}</div>
-            <div style={{ fontSize:11, color:"var(--color-text-tertiary)" }}>Jadwal tetap: {profile.lessonDay} {normalizeLessonTime(profile.lessonTime)}</div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-              <div>
-                <div style={{ fontSize:12, color:"var(--color-text-secondary)", marginBottom:6 }}>Pindah hari</div>
-                <select value={rescheduleDay} onChange={function(e) { setRescheduleDay(e.target.value); }} style={{ width:"100%" }}>
-                  {LESSON_DAYS.map(function(day) {
-                    return <option key={day} value={day}>{day}</option>;
-                  })}
-                </select>
+          <div onClick={function() { setRescheduleId(null); }}
+            style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.4)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000 }}>
+            <div onClick={function(e) { e.stopPropagation(); }}
+              style={{ background:"var(--color-background-primary)", borderRadius:"var(--border-radius-lg)", padding:"1.25rem", width:"90%", maxWidth:360, display:"flex", flexDirection:"column", gap:10, boxShadow:"var(--shadow-md)" }}>
+              <div style={{ fontSize:14, fontWeight:500, color:"var(--color-text-primary)" }}>↻ Reschedule: {profile.name}</div>
+              <div style={{ fontSize:12, color:"var(--color-text-tertiary)" }}>Jadwal tetap: {profile.lessonDay || "-"} {normalizeLessonTime(profile.lessonTime)}</div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                <div>
+                  <div style={{ fontSize:12, color:"var(--color-text-secondary)", marginBottom:6 }}>Pindah hari</div>
+                  <select value={rescheduleDay} onChange={function(e) { setRescheduleDay(e.target.value); }} style={{ width:"100%" }}>
+                    {LESSON_DAYS.map(function(day) {
+                      return <option key={day} value={day}>{day}</option>;
+                    })}
+                  </select>
+                </div>
+                <div>
+                  <div style={{ fontSize:12, color:"var(--color-text-secondary)", marginBottom:6 }}>Jam baru</div>
+                  <input type="time" value={rescheduleTime} onChange={function(e) { setRescheduleTime(e.target.value); }} style={{ width:"100%", boxSizing:"border-box" }} />
+                </div>
               </div>
-              <div>
-                <div style={{ fontSize:12, color:"var(--color-text-secondary)", marginBottom:6 }}>Jam baru</div>
-                <input type="time" value={rescheduleTime} onChange={function(e) { setRescheduleTime(e.target.value); }} style={{ width:"100%", boxSizing:"border-box" }} />
+              <div style={{ display:"flex", gap:8 }}>
+                <button onClick={function() { onReschedule(rescheduleId, rescheduleDay, rescheduleTime); setRescheduleId(null); }}
+                  style={{ flex:1, padding:"9px", background:"#378ADD", color:"#fff", border:"none", borderRadius:"var(--border-radius-md)", fontSize:13, cursor:"pointer" }}>Simpan</button>
+                {profile.rescheduleDay && (
+                  <button onClick={function() { onReschedule(rescheduleId, null, null); setRescheduleId(null); }}
+                    style={{ padding:"9px 12px", background:"transparent", border:"0.5px solid var(--color-border-danger)", borderRadius:"var(--border-radius-md)", fontSize:13, color:"var(--color-text-danger)", cursor:"pointer" }}>Hapus</button>
+                )}
+                <button onClick={function() { setRescheduleId(null); }}
+                  style={{ padding:"9px 12px", background:"transparent", border:"0.5px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-md)", fontSize:13, color:"var(--color-text-secondary)", cursor:"pointer" }}>{t("cancel")}</button>
               </div>
-            </div>
-            <div style={{ display:"flex", gap:8 }}>
-              <button onClick={function() { onReschedule(rescheduleId, rescheduleDay, rescheduleTime); setRescheduleId(null); }}
-                style={{ flex:1, padding:"9px", background:"#378ADD", color:"#fff", border:"none", borderRadius:"var(--border-radius-md)", fontSize:13, cursor:"pointer" }}>Simpan Reschedule</button>
-              {profile.rescheduleDay && (
-                <button onClick={function() { onReschedule(rescheduleId, null, null); setRescheduleId(null); }}
-                  style={{ padding:"9px 12px", background:"transparent", border:"0.5px solid var(--color-border-danger)", borderRadius:"var(--border-radius-md)", fontSize:13, color:"var(--color-text-danger)", cursor:"pointer" }}>Hapus</button>
-              )}
-              <button onClick={function() { setRescheduleId(null); }}
-                style={{ padding:"9px 12px", background:"transparent", border:"0.5px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-md)", fontSize:13, color:"var(--color-text-secondary)", cursor:"pointer" }}>{t("cancel")}</button>
             </div>
           </div>
         );
