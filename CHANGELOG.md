@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.1.0] — 2026-05-27
+
+### Added
+- Fitur **Reschedule** — pindahkan jadwal les murid sementara ke hari/jam lain
+  - Tombol ↻ di kartu profil murid di HomeScreen
+  - Pilih hari & jam baru via modal dialog
+  - Murid yang di-reschedule muncul di Today's Agenda dengan badge ↻
+  - Tampilan reschedule di kartu profil, TrackerScreen, dan agenda grup
+  - Otomatis kembali ke jadwal normal setelah sesi disimpan
+  - Badge & teks warning color di semua tampilan
+
 ## [1.0.0] — 2026-05-27
 
 ### Added

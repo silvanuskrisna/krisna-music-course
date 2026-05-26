@@ -15,6 +15,7 @@ const SCORE_LABELS = {
   expression: "Expression",
 };
 let lessonScheduleColumnsAvailable = true;
+let rescheduleColumnsAvailable = true;
 let sessionExtraColumnsAvailable = true;
 
 const MATERI = {
@@ -35,7 +36,7 @@ const MATERI = {
   },
 };
 
-const APP_VERSION = "1.0.0";
+const APP_VERSION = "1.1.0";
 
 const KAT_COLORS = {
   "Teknik Dasar": { bg:"var(--color-background-info)", text:"var(--color-text-info)", bar:"#378ADD" },
@@ -319,6 +320,13 @@ function withoutLessonScheduleFields(row) {
   return next;
 }
 
+function withoutRescheduleFields(row) {
+  const next = Object.assign({}, row);
+  delete next.reschedule_day;
+  delete next.reschedule_time;
+  return next;
+}
+
 function withoutSessionExtraFields(row) {
   const next = Object.assign({}, row);
   delete next.attendance_status;
@@ -338,6 +346,10 @@ function buildStudentRow(profile, includeId) {
   if (lessonScheduleColumnsAvailable) {
     row.lesson_day = profile.lessonDay || null;
     row.lesson_time = profile.lessonTime || null;
+  }
+  if (rescheduleColumnsAvailable) {
+    row.reschedule_day = profile.rescheduleDay || null;
+    row.reschedule_time = profile.rescheduleTime || null;
   }
   return row;
 }
@@ -419,12 +431,20 @@ function getTodayLessonProfiles(profiles) {
   const today = new Date().toLocaleDateString("id-ID", { weekday:"long" });
   const normalizedToday = today.charAt(0).toUpperCase() + today.slice(1);
   return profiles
-    .filter(function(profile) { return profile.lessonDay === normalizedToday; })
-    .sort(function(a, b) { return normalizeLessonTime(a.lessonTime).localeCompare(normalizeLessonTime(b.lessonTime)); });
+    .filter(function(profile) {
+      return profile.lessonDay === normalizedToday || profile.rescheduleDay === normalizedToday;
+    })
+    .sort(function(a, b) {
+      const timeA = normalizeLessonTime(a.rescheduleTime || a.lessonTime);
+      const timeB = normalizeLessonTime(b.rescheduleTime || b.lessonTime);
+      return timeA.localeCompare(timeB);
+    });
 }
 
 function getLessonGroupKey(profile) {
-  return [profile.lessonDay || "", normalizeLessonTime(profile.lessonTime)].join("|");
+  const day = profile.rescheduleDay || profile.lessonDay || "";
+  const time = normalizeLessonTime(profile.rescheduleTime || profile.lessonTime);
+  return [day, time].join("|");
 }
 
 function getTodayLessonGroups(profiles) {
@@ -438,7 +458,7 @@ function getTodayLessonGroups(profiles) {
     const profilesInGroup = groups[key];
     return {
       key: key,
-      time: normalizeLessonTime(profilesInGroup[0].lessonTime),
+      time: normalizeLessonTime(profilesInGroup[0].rescheduleTime || profilesInGroup[0].lessonTime),
       profiles: profilesInGroup,
     };
   }).sort(function(a, b) { return a.time.localeCompare(b.time); });
@@ -654,6 +674,8 @@ function fromSupabaseStudent(row, sessions) {
     defaultInstrument: row.default_instrument || (studentSessions[0] ? studentSessions[0].instrument : "Gitar"),
     lessonDay: row.lesson_day || "",
     lessonTime: normalizeLessonTime(row.lesson_time),
+    rescheduleDay: row.reschedule_day || null,
+    rescheduleTime: row.reschedule_time ? String(row.reschedule_time).slice(0, 5) : null,
     weeklyTarget: row.weekly_target_seconds,
     sessions: studentSessions,
   };
@@ -670,6 +692,8 @@ async function fetchSupabaseData() {
   if (studentsResult.data && studentsResult.data.length > 0) {
     lessonScheduleColumnsAvailable = Object.prototype.hasOwnProperty.call(studentsResult.data[0], "lesson_day")
       && Object.prototype.hasOwnProperty.call(studentsResult.data[0], "lesson_time");
+    rescheduleColumnsAvailable = Object.prototype.hasOwnProperty.call(studentsResult.data[0], "reschedule_day")
+      && Object.prototype.hasOwnProperty.call(studentsResult.data[0], "reschedule_time");
   }
 
   const sessionsResult = await supabase
@@ -705,9 +729,10 @@ async function createSupabaseStudent(profile) {
     .single();
   if (result.error && isMissingLessonScheduleColumn(result.error)) {
     lessonScheduleColumnsAvailable = false;
+    rescheduleColumnsAvailable = false;
     result = await supabase
       .from("students")
-      .insert(withoutLessonScheduleFields(row))
+      .insert(withoutRescheduleFields(withoutLessonScheduleFields(row)))
       .select("*")
       .single();
   }
@@ -725,9 +750,10 @@ async function syncSupabaseProfile(profile) {
     .upsert(studentRow);
   if (studentResult.error && isMissingLessonScheduleColumn(studentResult.error)) {
     lessonScheduleColumnsAvailable = false;
+    rescheduleColumnsAvailable = false;
     studentResult = await supabase
       .from("students")
-      .upsert(withoutLessonScheduleFields(studentRow));
+      .upsert(withoutRescheduleFields(withoutLessonScheduleFields(studentRow)));
   }
   if (studentResult.error) throw studentResult.error;
 
@@ -799,12 +825,15 @@ function LanguageSwitch({ lang, onChange }) {
   );
 }
 
-function HomeScreen({ data, onSelect, onSelectGroup, onAdd, onDelete, syncStatus, theme, onToggleTheme, lang, onChangeLang, t }) {
+function HomeScreen({ data, onSelect, onSelectGroup, onAdd, onDelete, onReschedule, syncStatus, theme, onToggleTheme, lang, onChangeLang, t }) {
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState("");
   const [newInstrument, setNewInstrument] = useState("Gitar");
   const [newLessonDay, setNewLessonDay] = useState("Senin");
   const [newLessonTime, setNewLessonTime] = useState("16:00");
+  const [rescheduleId, setRescheduleId] = useState(null);
+  const [rescheduleDay, setRescheduleDay] = useState("Senin");
+  const [rescheduleTime, setRescheduleTime] = useState("16:00");
   const todaysLessonGroups = getTodayLessonGroups(data.profiles);
 
   function handleAdd() {
@@ -854,9 +883,14 @@ function HomeScreen({ data, onSelect, onSelectGroup, onAdd, onDelete, syncStatus
 	                return (
 	                  <button key={group.key} onClick={function() { onSelectGroup(group.profiles.map(function(profile) { return profile.id; })); }}
 	                    style={{ display:"flex", alignItems:"center", gap:8, textAlign:"left", padding:"8px 10px", background:"var(--color-background-primary)", border:"0.5px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-md)", cursor:"pointer", color:"var(--color-text-primary)" }}>
-	                    <span>{INST_ICON[inst] || "🎵"}</span>
-	                    <span style={{ flex:1, fontSize:13 }}>{names}</span>
-	                    <span style={{ fontSize:12, color:"var(--color-text-secondary)" }}>{group.time}</span>
+                    <span>{INST_ICON[inst] || "🎵"}</span>
+                    <span style={{ flex:1, fontSize:13 }}>
+                      {names}
+                      {group.profiles.some(function(p) { return p.rescheduleDay; }) && (
+                        <span style={{ marginLeft:6, fontSize:10, color:"var(--color-text-warning)", fontWeight:500 }}>↻ Reschedule</span>
+                      )}
+                    </span>
+                    <span style={{ fontSize:12, color:"var(--color-text-secondary)" }}>{group.time}</span>
 	                  </button>
 	                );
 	              })}
@@ -884,7 +918,15 @@ function HomeScreen({ data, onSelect, onSelectGroup, onAdd, onDelete, syncStatus
                 <div style={{ fontSize:12, color:"var(--color-text-tertiary)", marginTop:2 }}>
                   {t("thisWeek")}: {formatTime(week)} · {t("total")}: {formatTime(total)}
                 </div>
+                {p.rescheduleDay && (
+                  <div style={{ fontSize:11, color:"var(--color-text-warning)", marginTop:2 }}>
+                    ↻ Reschedule: {p.rescheduleDay} {normalizeLessonTime(p.rescheduleTime || "")}
+                  </div>
+                )}
               </div>
+              <button onClick={function(e) { e.stopPropagation(); setRescheduleId(p.id); setRescheduleDay(p.rescheduleDay || p.lessonDay || "Senin"); setRescheduleTime(p.rescheduleTime || p.lessonTime || "16:00"); }}
+                style={{ background:"none", border:"0.5px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-md)", cursor:"pointer", color:"var(--color-text-tertiary)", fontSize:13, padding:"4px 8px", flexShrink:0 }}
+                title="Reschedule">↻</button>
               <button onClick={function(e) { e.stopPropagation(); onDelete(p.id); }}
                 style={{ background:"none", border:"none", cursor:"pointer", color:"var(--color-text-tertiary)", fontSize:18, padding:"4px" }}>×</button>
             </div>
@@ -938,6 +980,41 @@ function HomeScreen({ data, onSelect, onSelectGroup, onAdd, onDelete, syncStatus
           {t("addStudent")}
         </button>
       )}
+
+      {rescheduleId && (function() {
+        var profile = data.profiles.find(function(p) { return p.id === rescheduleId; });
+        if (!profile) return null;
+        return (
+          <div className="panel" style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-lg)", padding:"1rem", display:"flex", flexDirection:"column", gap:10, marginTop:12 }}>
+            <div style={{ fontSize:13, fontWeight:500, color:"var(--color-text-primary)" }}>↻ Reschedule: {profile.name}</div>
+            <div style={{ fontSize:11, color:"var(--color-text-tertiary)" }}>Jadwal tetap: {profile.lessonDay} {normalizeLessonTime(profile.lessonTime)}</div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+              <div>
+                <div style={{ fontSize:12, color:"var(--color-text-secondary)", marginBottom:6 }}>Pindah hari</div>
+                <select value={rescheduleDay} onChange={function(e) { setRescheduleDay(e.target.value); }} style={{ width:"100%" }}>
+                  {LESSON_DAYS.map(function(day) {
+                    return <option key={day} value={day}>{day}</option>;
+                  })}
+                </select>
+              </div>
+              <div>
+                <div style={{ fontSize:12, color:"var(--color-text-secondary)", marginBottom:6 }}>Jam baru</div>
+                <input type="time" value={rescheduleTime} onChange={function(e) { setRescheduleTime(e.target.value); }} style={{ width:"100%", boxSizing:"border-box" }} />
+              </div>
+            </div>
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={function() { onReschedule(rescheduleId, rescheduleDay, rescheduleTime); setRescheduleId(null); }}
+                style={{ flex:1, padding:"9px", background:"#378ADD", color:"#fff", border:"none", borderRadius:"var(--border-radius-md)", fontSize:13, cursor:"pointer" }}>Simpan Reschedule</button>
+              {profile.rescheduleDay && (
+                <button onClick={function() { onReschedule(rescheduleId, null, null); setRescheduleId(null); }}
+                  style={{ padding:"9px 12px", background:"transparent", border:"0.5px solid var(--color-border-danger)", borderRadius:"var(--border-radius-md)", fontSize:13, color:"var(--color-text-danger)", cursor:"pointer" }}>Hapus</button>
+              )}
+              <button onClick={function() { setRescheduleId(null); }}
+                style={{ padding:"9px 12px", background:"transparent", border:"0.5px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-md)", fontSize:13, color:"var(--color-text-secondary)", cursor:"pointer" }}>{t("cancel")}</button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -981,6 +1058,11 @@ function TrackerScreen({ profile, updateProfile, onBack, syncStatus, theme, onTo
           <div>
             <div style={{ fontSize:12, color:"var(--color-text-secondary)" }}>{t("lessonSchedule")}</div>
             <div style={{ fontSize:14, fontWeight:500, color:"var(--color-text-primary)", marginTop:2 }}>{formatLessonSchedule(profile, t)}</div>
+            {profile.rescheduleDay && (
+              <div style={{ fontSize:12, color:"var(--color-text-warning)", marginTop:2 }}>
+                ↻ Reschedule hari ini: {profile.rescheduleDay} {normalizeLessonTime(profile.rescheduleTime)}
+              </div>
+            )}
           </div>
           {!editSchedule && (
             <button onClick={function() { setEditSchedule(true); }} style={{ fontSize:12, color:"var(--color-text-info)", background:"none", border:"none", cursor:"pointer" }}>{t("edit")}</button>
@@ -1152,6 +1234,8 @@ export default function App() {
       defaultInstrument: defaultInstrument || "Gitar",
       lessonDay: lessonDay || "",
       lessonTime: lessonTime || "",
+      rescheduleDay: null,
+      rescheduleTime: null,
       sessions: [],
       weeklyTarget: 300,
     };
@@ -1189,6 +1273,28 @@ export default function App() {
         activeIds: (prev.activeIds || []).filter(function(activeId) { return activeId !== id; }),
       };
     });
+  }
+
+  function handleReschedule(id, day, time) {
+    update(function(prev) {
+      return Object.assign({}, prev, {
+        profiles: prev.profiles.map(function(p) {
+          if (p.id !== id) return p;
+          return Object.assign({}, p, { rescheduleDay: day || null, rescheduleTime: time || null });
+        }),
+      });
+    });
+    // Sync to Supabase
+    var profile = data.profiles.find(function(p) { return p.id === id; });
+    if (profile) {
+      var updated = Object.assign({}, profile, { rescheduleDay: day || null, rescheduleTime: time || null });
+      syncSupabaseProfile(updated)
+        .then(function() { setSyncStatus(t("synced")); })
+        .catch(function(error) {
+          console.error(error);
+          setSyncStatus(t("syncFailed") + getErrorMessage(error));
+        });
+    }
   }
 
   const updateProfile = useCallback(function(fn) {
@@ -1280,6 +1386,7 @@ export default function App() {
       onSelectGroup={handleSelectGroup}
       onAdd={handleAdd}
       onDelete={handleDelete}
+      onReschedule={handleReschedule}
       syncStatus={syncStatus}
       theme={theme}
       onToggleTheme={function() { setTheme(function(current) { return current === "dark" ? "light" : "dark"; }); }}
@@ -1498,7 +1605,11 @@ function TimerTab({ profile, updateProfile, onSaveSession, t }) {
       };
     });
     updateProfile(function(p) {
-      return Object.assign({}, p, { sessions: p.sessions.concat(newSessions) });
+      return Object.assign({}, p, {
+        sessions: p.sessions.concat(newSessions),
+        rescheduleDay: null,
+        rescheduleTime: null,
+      });
     });
     if (onSaveSession) onSaveSession();
     clearSessionDraft(profile.id);
