@@ -2306,44 +2306,61 @@ function ReportTab({ profile, lang, t }) {
         📋 Salin Laporan
       </button>
 
-      {/* Session History */}
+      {/* Session History — grouped by date */}
       <div style={{ fontSize:12, fontWeight:600, color:"var(--color-text-secondary)", marginBottom:8 }}>{t("log")} ({totalLessons} les)</div>
       {sorted.length === 0 ? (
         <div style={{ textAlign:"center", padding:"2rem 0", fontSize:13, color:"var(--color-text-tertiary)" }}>
           Belum ada sesi les tercatat
         </div>
-      ) : sorted.map(function(s) {
-        const attColor = {
-          "Hadir": "var(--color-text-success)",
-          "Izin": "var(--color-text-warning)",
-          "Libur": "var(--color-text-tertiary)",
-          "No-show": "var(--color-text-danger)",
-          "Reschedule": "var(--color-text-info)",
-        }[s.attendance] || "var(--color-text-success)";
-        const attBg = {
-          "Hadir": "var(--color-background-success)",
-          "Izin": "var(--color-background-warning)",
-          "Libur": "var(--color-background-secondary)",
-          "No-show": "var(--color-background-danger)",
-          "Reschedule": "var(--color-background-info)",
-        }[s.attendance] || "var(--color-background-success)";
-
-        return (
-          <div key={s.id} style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-md)", padding:"0.75rem 1rem", marginBottom:6 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
-              <span style={{ fontSize:12, fontWeight:500, color:"var(--color-text-primary)" }}>{s.date}</span>
-              <span style={{ fontSize:11, padding:"1px 8px", borderRadius:"999px", background:attBg, color:attColor, fontWeight:500 }}>
-                {s.attendance || "Hadir"}
-              </span>
+      ) : (function() {
+        // Group sessions by date
+        var groups = {};
+        sorted.forEach(function(s) {
+          if (!groups[s.date]) groups[s.date] = [];
+          groups[s.date].push(s);
+        });
+        var dateKeys = Object.keys(groups).sort().reverse();
+        return dateKeys.map(function(date) {
+          var sessionsInDate = groups[date];
+          return (
+            <div key={date} style={{ marginBottom:"1rem" }}>
+              <div style={{ fontSize:13, fontWeight:600, color:"var(--color-text-primary)", marginBottom:6, paddingBottom:4, borderBottom:"1px solid var(--color-border-tertiary)" }}>
+                {date} <span style={{ fontWeight:400, fontSize:11, color:"var(--color-text-tertiary)" }}>({sessionsInDate.length} sesi)</span>
+              </div>
+              {sessionsInDate.map(function(s) {
+                var attColor = {
+                  "Hadir": "var(--color-text-success)",
+                  "Izin": "var(--color-text-warning)",
+                  "Libur": "var(--color-text-tertiary)",
+                  "No-show": "var(--color-text-danger)",
+                  "Reschedule": "var(--color-text-info)",
+                }[s.attendance] || "var(--color-text-success)";
+                var attBg = {
+                  "Hadir": "var(--color-background-success)",
+                  "Izin": "var(--color-background-warning)",
+                  "Libur": "var(--color-background-secondary)",
+                  "No-show": "var(--color-background-danger)",
+                  "Reschedule": "var(--color-background-info)",
+                }[s.attendance] || "var(--color-background-success)";
+                return (
+                  <div key={s.id} style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-md)", padding:"0.65rem 0.9rem", marginBottom:4 }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:3 }}>
+                      <span style={{ fontSize:12, color:"var(--color-text-secondary)" }}>
+                        {(s.materi || "-")} · {formatDuration(s.duration)}
+                      </span>
+                      <span style={{ fontSize:10, padding:"1px 7px", borderRadius:"999px", background:attBg, color:attColor, fontWeight:600 }}>
+                        {s.attendance || "Hadir"}
+                      </span>
+                    </div>
+                    {s.notes && <div style={{ fontSize:11, color:"var(--color-text-tertiary)", marginTop:2, whiteSpace:"pre-wrap" }}>📝 {s.notes}</div>}
+                    {s.homework && <div style={{ fontSize:11, color:"var(--color-text-warning)", marginTop:2 }}>📋 PR: {s.homework}</div>}
+                  </div>
+                );
+              })}
             </div>
-            <div style={{ fontSize:12, color:"var(--color-text-secondary)", marginBottom:2 }}>
-              {s.materi || "-"} · {formatDuration(s.duration)}
-            </div>
-            {s.notes && <div style={{ fontSize:11, color:"var(--color-text-tertiary)", marginTop:2, whiteSpace:"pre-wrap" }}>📝 {s.notes}</div>}
-            {s.homework && <div style={{ fontSize:11, color:"var(--color-text-warning)", marginTop:2 }}>📋 PR: {s.homework}</div>}
-          </div>
-        );
-      })}
+          );
+        });
+      })()}
     </div>
   );
 }
