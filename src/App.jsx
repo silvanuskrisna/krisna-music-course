@@ -820,19 +820,23 @@ function ThemeSwitch({ theme, onToggle }) {
   const isDark = theme === "dark";
   return (
     <button
-      className="theme-switch"
+      className="theme-toggle-btn"
       type="button"
-      role="switch"
-      aria-checked={isDark}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       title={isDark ? "Light mode" : "Dark mode"}
       onClick={onToggle}
     >
-      <span className="theme-switch-icon">{isDark ? "☾" : "☀"}</span>
-      <span className="theme-switch-track">
-        <span className="theme-switch-thumb" />
-      </span>
+      {isDark ? "☾" : "☀"}
     </button>
+  );
+}
+
+function FloatingControls({ theme, onToggleTheme, lang, onChangeLang }) {
+  return (
+    <div className="floating-controls">
+      <LanguageSwitch lang={lang} onChange={onChangeLang} />
+      <ThemeSwitch theme={theme} onToggle={onToggleTheme} />
+    </div>
   );
 }
 
@@ -888,8 +892,6 @@ function HomeScreen({ data, onSelect, onSelectGroup, onAdd, onDelete, onReschedu
         </div>
         <div className="home-actions">
           <div className="sync-pill">{syncStatus}</div>
-          <LanguageSwitch lang={lang} onChange={onChangeLang} />
-          <ThemeSwitch theme={theme} onToggle={onToggleTheme} />
         </div>
       </div>
 
@@ -1113,7 +1115,6 @@ function TrackerScreen({ profile, updateProfile, onBack, syncStatus, theme, onTo
           <div className="tracker-sync-status" style={{ fontSize:11, color:"var(--color-text-tertiary)", marginTop:2 }}>{syncStatus}</div>
         </div>
         <LanguageSwitch lang={lang} onChange={onChangeLang} />
-        <ThemeSwitch theme={theme} onToggle={onToggleTheme} />
       </div>
       <div style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-lg)", padding:"0.85rem 1rem", marginBottom:"1rem" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8 }}>
@@ -1211,7 +1212,6 @@ function GroupTrackerScreen({ profiles, updateGroupProfiles, onBack, syncStatus,
           <div className="tracker-sync-status" style={{ fontSize:11, color:"var(--color-text-tertiary)", marginTop:2 }}>{syncStatus}</div>
         </div>
         <LanguageSwitch lang={lang} onChange={onChangeLang} />
-        <ThemeSwitch theme={theme} onToggle={onToggleTheme} />
       </div>
       <div style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-lg)", padding:"0.85rem 1rem", marginBottom:"1rem", fontSize:12, color:"var(--color-text-secondary)" }}>
         Sesi grup: hasil `Simpan Sesi` akan masuk ke {profiles.length} murid.
@@ -1405,7 +1405,8 @@ export default function App() {
 
   if (activeProfiles.length > 1) {
     return (
-      <GroupTrackerScreen
+      <>
+        <GroupTrackerScreen
         profiles={activeProfiles}
         updateGroupProfiles={updateGroupProfiles}
         syncStatus={syncStatus}
@@ -1416,12 +1417,20 @@ export default function App() {
         t={t}
         onBack={function() { update(function(prev) { return Object.assign({}, prev, { activeId: null, activeIds: [] }); }); }}
       />
+        <FloatingControls
+          theme={theme}
+          onToggleTheme={function() { setTheme(function(current) { return current === "dark" ? "light" : "dark"; }); }}
+          lang={lang}
+          onChangeLang={setLang}
+        />
+      </>
     );
   }
 
   if (activeProfile) {
     return (
-      <TrackerScreen
+      <>
+        <TrackerScreen
         profile={activeProfile}
         updateProfile={updateProfile}
         syncStatus={syncStatus}
@@ -1432,11 +1441,19 @@ export default function App() {
         t={t}
         onBack={function() { update(function(prev) { return Object.assign({}, prev, { activeId: null, activeIds: [] }); }); }}
       />
+        <FloatingControls
+          theme={theme}
+          onToggleTheme={function() { setTheme(function(current) { return current === "dark" ? "light" : "dark"; }); }}
+          lang={lang}
+          onChangeLang={setLang}
+        />
+      </>
     );
   }
 
   return (
-    <HomeScreen
+    <>
+      <HomeScreen
       data={data}
       onSelect={handleSelect}
       onSelectGroup={handleSelectGroup}
@@ -1450,6 +1467,13 @@ export default function App() {
       onChangeLang={setLang}
       t={t}
     />
+      <FloatingControls
+        theme={theme}
+        onToggleTheme={function() { setTheme(function(current) { return current === "dark" ? "light" : "dark"; }); }}
+        lang={lang}
+        onChangeLang={setLang}
+      />
+    </>
   );
 }
 
