@@ -36,7 +36,7 @@ const MATERI = {
   },
 };
 
-const APP_VERSION = "1.1.0";
+const APP_VERSION = "1.2.0";
 
 const KAT_COLORS = {
   "Teknik Dasar": { bg:"var(--color-background-info)", text:"var(--color-text-info)", bar:"#378ADD" },
@@ -44,7 +44,7 @@ const KAT_COLORS = {
   "Teori":        { bg:"var(--color-background-warning)", text:"var(--color-text-warning)", bar:"#BA7517" },
 };
 
-const TABS = ["practice","metronome","log","progress","report"];
+const TABS = ["teach","practice","report"];
 
 const STRINGS = {
   id: {
@@ -66,7 +66,7 @@ const STRINGS = {
     cancel: "Batal",
     addStudent: "+ Tambah murid",
     back: "Kembali",
-    tabs: { practice:"Latihan", metronome:"Metronome", log:"Log", progress:"Progress", report:"Report" },
+    tabs: { teach:"Sesi", practice:"Materi", report:"Laporan" },
     chooseInstrument: "Pilih instrumen dulu.",
     practiceMaterial: "Materi latihan",
     songTitle: "Judul lagu",
@@ -144,6 +144,21 @@ const STRINGS = {
     material: "Materi",
     duration: "Durasi",
     notes: "Catatan",
+    lastSession: "Sesi Sebelumnya",
+    noPrevSession: "Belum ada sesi sebelumnya",
+    checkHomework: "Cek PR",
+    teachMaterial: "Materi diajarkan",
+    sessionDuration: "Durasi les",
+    minute: "menit",
+    lessonSaved: "Sesi tersimpan!",
+    lessonSave: "Simpan Sesi Ngajar",
+    lessonStart: "Mulai Ngajar",
+    newHomework: "PR baru",
+    previousHomework: "PR sebelumnya",
+    fromLastSession: "dari sesi lalu",
+    quickNotes: "Catatan Cepat",
+    attendanceLabel: "Kehadiran",
+    log: "Riwayat",
   },
   en: {
     practiceStudio: "Practice studio",
@@ -164,7 +179,7 @@ const STRINGS = {
     cancel: "Cancel",
     addStudent: "+ Add student",
     back: "Back",
-    tabs: { practice:"Practice", metronome:"Metronome", log:"Log", progress:"Progress", report:"Report" },
+    tabs: { teach:"Session", practice:"Material", report:"Report" },
     chooseInstrument: "Choose an instrument first.",
     practiceMaterial: "Practice material",
     songTitle: "Song title",
@@ -242,6 +257,21 @@ const STRINGS = {
     material: "Material",
     duration: "Duration",
     notes: "Notes",
+    lastSession: "Last Session",
+    noPrevSession: "No previous session",
+    checkHomework: "Check Homework",
+    teachMaterial: "Material taught",
+    sessionDuration: "Lesson duration",
+    minute: "min",
+    lessonSaved: "Lesson saved!",
+    lessonSave: "Save Teaching Session",
+    lessonStart: "Start Teaching",
+    newHomework: "New homework",
+    previousHomework: "Previous homework",
+    fromLastSession: "from last session",
+    quickNotes: "Quick Notes",
+    attendanceLabel: "Attendance",
+    log: "History",
   },
 };
 
@@ -872,30 +902,59 @@ function HomeScreen({ data, onSelect, onSelectGroup, onAdd, onDelete, onReschedu
 
       {data.profiles.length > 0 && (
         <div style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-lg)", padding:"1rem", marginBottom:"1rem" }}>
-          <div style={{ fontSize:13, fontWeight:600, color:"var(--color-text-primary)", marginBottom:8 }}>{t("todayAgenda")}</div>
-	          {todaysLessonGroups.length === 0 ? (
-	            <div style={{ fontSize:12, color:"var(--color-text-tertiary)" }}>{t("noLessonsToday")}</div>
-	          ) : (
-	            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-	              {todaysLessonGroups.map(function(group) {
-	                const inst = group.profiles[0].defaultInstrument || "Gitar";
-	                const names = group.profiles.map(function(profile) { return profile.name; }).join(", ");
-	                return (
-	                  <button key={group.key} onClick={function() { onSelectGroup(group.profiles.map(function(profile) { return profile.id; })); }}
-	                    style={{ display:"flex", alignItems:"center", gap:8, textAlign:"left", padding:"8px 10px", background:"var(--color-background-primary)", border:"0.5px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-md)", cursor:"pointer", color:"var(--color-text-primary)" }}>
-                    <span>{INST_ICON[inst] || "🎵"}</span>
-                    <span style={{ flex:1, fontSize:13 }}>
-                      {names}
-                      {group.profiles.some(function(p) { return p.rescheduleDay; }) && (
-                        <span style={{ marginLeft:6, fontSize:10, color:"var(--color-text-warning)", fontWeight:500 }}>↻ Reschedule</span>
-                      )}
-                    </span>
-                    <span style={{ fontSize:12, color:"var(--color-text-secondary)" }}>{group.time}</span>
-	                  </button>
-	                );
-	              })}
-            </div>
-          )}
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+            <div style={{ fontSize:13, fontWeight:600, color:"var(--color-text-primary)" }}>{t("todayAgenda")}</div>
+            <span style={{ fontSize:11, color:"var(--color-text-tertiary)" }}>
+              {todaysLessonGroups.length} {todaysLessonGroups.length > 1 ? "sesi" : "sesi"}
+            </span>
+          </div>
+            {todaysLessonGroups.length === 0 ? (
+              <div style={{ fontSize:12, color:"var(--color-text-tertiary)", textAlign:"center", padding:"1rem 0" }}>{t("noLessonsToday")}</div>
+            ) : (
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {todaysLessonGroups.map(function(group, gi) {
+                  const inst = group.profiles[0].defaultInstrument || "Gitar";
+                  const names = group.profiles.map(function(profile) { return profile.name; }).join(", ");
+                  const isReschedule = group.profiles.some(function(p) { return p.rescheduleDay; });
+                  const now = new Date();
+                  const currentHour = String(now.getHours()).padStart(2, "0");
+                  const currentMin = String(now.getMinutes()).padStart(2, "0");
+                  const timeStr = group.time || "00:00";
+                  const isPast = timeStr < (currentHour + ":" + currentMin);
+                  return (
+                    <div key={group.key}
+                      style={{ display:"flex", alignItems:"stretch", gap:0, background:"var(--color-background-primary)", border:"0.5px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-lg)", overflow:"hidden" }}>
+                      {/* Time column */}
+                      <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minWidth:52, padding:"8px 6px", background: isPast ? "var(--color-background-tertiary)" : "var(--color-background-info)", borderRight:"0.5px solid var(--color-border-tertiary)" }}>
+                        <div style={{ fontSize:11, fontWeight:700, color: isPast ? "var(--color-text-tertiary)" : "var(--color-text-info)", letterSpacing:"0.03em" }}>{group.time}</div>
+                        <div style={{ fontSize:9, color: isPast ? "var(--color-text-tertiary)" : "var(--color-text-info)", marginTop:2, opacity:0.7 }}>{isPast ? "●" : "○"}</div>
+                      </div>
+                      {/* Content */}
+                      <div style={{ flex:1, padding:"8px 10px", cursor:"pointer" }}
+                        onClick={function() { onSelectGroup(group.profiles.map(function(profile) { return profile.id; })); }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                          <span style={{ fontSize:16 }}>{INST_ICON[inst] || "🎵"}</span>
+                          <span style={{ fontSize:14, fontWeight:500, color:"var(--color-text-primary)" }}>{names}</span>
+                          {isReschedule && (
+                            <span style={{ fontSize:10, fontWeight:600, color:"var(--color-text-warning)", background:"var(--color-background-warning)", padding:"1px 6px", borderRadius:999 }}>↻</span>
+                          )}
+                        </div>
+                        <div style={{ fontSize:11, color:"var(--color-text-tertiary)", marginTop:3 }}>
+                          {inst} · {group.profiles.length > 1 ? group.profiles.length + " murid" : "privat"}
+                        </div>
+                      </div>
+                      {/* Action */}
+                      <div style={{ display:"flex", alignItems:"center", padding:"0 6px" }}>
+                        <button onClick={function(e) { e.stopPropagation(); onSelectGroup(group.profiles.map(function(profile) { return profile.id; })); }}
+                          style={{ padding:"6px 12px", fontSize:11, fontWeight:600, background: isPast ? "var(--color-background-info)" : "#1D9E75", color:"#fff", border:"none", borderRadius:"var(--border-radius-md)", cursor:"pointer", whiteSpace:"nowrap" }}>
+                          {isPast ? "Isi" : "Mulai"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
         </div>
       )}
 
@@ -1027,7 +1086,6 @@ function HomeScreen({ data, onSelect, onSelectGroup, onAdd, onDelete, onReschedu
 
 function TrackerScreen({ profile, updateProfile, onBack, syncStatus, theme, onToggleTheme, lang, onChangeLang, t }) {
   const [tab, setTab] = useState(0);
-  const [metronomeRunning, setMetronomeRunning] = useState(false);
   const [editSchedule, setEditSchedule] = useState(false);
   const [scheduleDay, setScheduleDay] = useState(profile.lessonDay || "Senin");
   const [scheduleTime, setScheduleTime] = useState(profile.lessonTime || "16:00");
@@ -1101,18 +1159,12 @@ function TrackerScreen({ profile, updateProfile, onBack, syncStatus, theme, onTo
         })}
       </div>
       <div style={{ display:tab === 0 ? "block" : "none" }} aria-hidden={tab !== 0}>
-        <TimerTab profile={profile} updateProfile={updateProfile} onSaveSession={function() { setMetronomeRunning(false); }} t={t} />
+        <TeachTab profile={profile} updateProfile={updateProfile} onSaveSession={function() {}} t={t} lang={lang} />
       </div>
       <div style={{ display:tab === 1 ? "block" : "none" }} aria-hidden={tab !== 1}>
-        <MetronomeTab running={metronomeRunning} setRunning={setMetronomeRunning} t={t} />
+        <TimerTab profile={profile} updateProfile={updateProfile} onSaveSession={function() {}} t={t} />
       </div>
       <div style={{ display:tab === 2 ? "block" : "none" }} aria-hidden={tab !== 2}>
-        <LogTab profile={profile} updateProfile={updateProfile} t={t} />
-      </div>
-      <div style={{ display:tab === 3 ? "block" : "none" }} aria-hidden={tab !== 3}>
-        <ProgressTab profile={profile} updateProfile={updateProfile} lang={lang} t={t} />
-      </div>
-      <div style={{ display:tab === 4 ? "block" : "none" }} aria-hidden={tab !== 4}>
         <ReportTab profile={profile} lang={lang} t={t} />
       </div>
     </div>
@@ -1464,6 +1516,324 @@ function MateriPicker({ instrument, value, onChange, t }) {
   );
 }
 
+// ─── TEACH TAB ───────────────────────────────────────────────────────────────
+//
+// Teacher Mode: tap "Mulai Ngajar" when the lesson starts → tap "Selesai"
+// when the lesson ends. Duration auto-calculated (60 min default if skipped).
+// All data saves to the same session format for reports & progress.
+
+function TeachTab({ profile, updateProfile, onSaveSession, t, lang }) {
+  const instrument = profile.defaultInstrument || "Gitar";
+  const sessions = profile.sessions || [];
+  const lastSession = sessions.length > 0 ? sessions[sessions.length - 1] : null;
+  const scheduleTime = profile.rescheduleTime || profile.lessonTime || "";
+
+  const [teaching, setTeaching] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [startedAt, setStartedAt] = useState(null);
+  const tickRef = useRef(null);
+
+  const [materi, setMateri] = useState(lastSession ? lastSession.materi : getDefaultLessonMaterial(instrument));
+  const [attendance, setAttendance] = useState("Hadir");
+  const [notes, setNotes] = useState("");
+  const [homework, setHomework] = useState("");
+  const [showMateriPicker, setShowMateriPicker] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [carryHomework, setCarryHomework] = useState(false);
+
+  // Carry over homework from last session
+  useEffect(function() {
+    if (carryHomework && lastSession && lastSession.homework) {
+      setHomework(lastSession.homework + "\n(Lanjutan)");
+    } else if (!carryHomework) {
+      setHomework("");
+    }
+  }, [carryHomework]);
+
+  // Timer tick when teaching
+  useEffect(function() {
+    if (teaching && startedAt) {
+      tickRef.current = setInterval(function() {
+        setElapsed(Math.floor((Date.now() - startedAt) / 1000));
+      }, 500);
+    } else {
+      clearInterval(tickRef.current);
+    }
+    return function() { clearInterval(tickRef.current); };
+  }, [teaching, startedAt]);
+
+  function handleStart() {
+    setTeaching(true);
+    setStartedAt(Date.now());
+    setElapsed(0);
+    setSaved(false);
+  }
+
+  function handleFinish() {
+    const actualDuration = elapsed > 0 ? Math.max(60, elapsed) : 3600; // min 1 min, default 60 min
+    if (!materi) return;
+
+    const newSession = {
+      id: newId(),
+      date: todayStr(),
+      instrument: instrument,
+      materi: materi,
+      notes: notes.trim(),
+      duration: actualDuration,
+      attendance: attendance,
+      homework: homework.trim(),
+      scores: defaultScores(),
+      startTime: scheduleTime || null,
+    };
+
+    updateProfile(function(p) {
+      return Object.assign({}, p, {
+        sessions: p.sessions.concat([newSession]),
+        rescheduleDay: null,
+        rescheduleTime: null,
+      });
+    });
+    if (onSaveSession) onSaveSession();
+    setTeaching(false);
+    setSaved(true);
+
+    setTimeout(function() {
+      setSaved(false);
+      setElapsed(0);
+      setStartedAt(null);
+      setNotes("");
+      setHomework("");
+      setAttendance("Hadir");
+      setMateri(lastSession ? lastSession.materi : getDefaultLessonMaterial(instrument));
+      setCarryHomework(false);
+    }, 2000);
+  }
+
+  const QUIK_NOTES = [
+    "Postur jari masih kaku",
+    "Tempo belum stabil",
+    "Transisi chord masih lambat",
+    "Sudah bagus, lanjut materi",
+    "Perlu latihan rhythm",
+    "Teknik dasar perlu diperbaiki",
+  ];
+
+  function insertQuickNote(note) {
+    setNotes(function(prev) { return prev ? prev + "\n" + note : note; });
+  }
+
+  const lastSessionInfo = lastSession ? (function() {
+    return {
+      date: lastSession.date || "",
+      materi: lastSession.materi || "-",
+      notes: lastSession.notes || "",
+      homework: lastSession.homework || "",
+    };
+  })() : null;
+
+  // Format elapsed time as HH:MM:SS
+  function fmtElapsed(sec) {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    return (h > 0 ? String(h).padStart(2, "0") + ":" : "") +
+      String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+  }
+
+  if (saved) {
+    return (
+      <div style={{ textAlign:"center", padding:"3rem 0" }}>
+        <div style={{ fontSize:48, marginBottom:"1rem" }}>✅</div>
+        <div style={{ fontSize:18, fontWeight:600, color:"var(--color-text-primary)" }}>{t("lessonSaved")}</div>
+        <div style={{ fontSize:13, color:"var(--color-text-tertiary)", marginTop:6 }}>
+          {t("attendanceLabel")}: {attendance} · {materi}
+        </div>
+      </div>
+    );
+  }
+
+  if (teaching) {
+    // ── TEACHING IN PROGRESS ──
+    return (
+      <div>
+        {/* Timer */}
+        <div style={{ textAlign:"center", padding:"1.5rem 0", marginBottom:"1rem" }}>
+          <div style={{ fontSize:48, fontWeight:500, letterSpacing:3, color:"var(--color-text-primary)", fontVariantNumeric:"tabular-nums" }}>
+            {fmtElapsed(elapsed)}
+          </div>
+          <div style={{ fontSize:13, color:"var(--color-text-success)", fontWeight:500, marginTop:6 }}>
+            ⏳ Les berjalan
+            {scheduleTime && <span style={{ color:"var(--color-text-tertiary)", fontWeight:400 }}> · mulai {scheduleTime}</span>}
+          </div>
+        </div>
+
+        {/* Attendance (editable during lesson) */}
+        <div style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-lg)", padding:"0.85rem 1rem", marginBottom:"1rem" }}>
+          <div style={{ fontSize:12, fontWeight:600, color:"var(--color-text-secondary)", marginBottom:8 }}>{t("attendanceLabel")}</div>
+          <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+            {ATTENDANCE_STATUSES.map(function(s) {
+              const active = attendance === s;
+              const colorMap = {
+                "Hadir": { bg:"var(--color-background-success)", text:"var(--color-text-success)" },
+                "Izin": { bg:"var(--color-background-warning)", text:"var(--color-text-warning)" },
+                "Libur": { bg:"var(--color-background-secondary)", text:"var(--color-text-tertiary)" },
+                "No-show": { bg:"var(--color-background-danger)", text:"var(--color-text-danger)" },
+                "Reschedule": { bg:"var(--color-background-info)", text:"var(--color-text-info)" },
+              };
+              const c = colorMap[s] || colorMap["Hadir"];
+              return (
+                <button key={s} onClick={function() { setAttendance(s); }}
+                  style={{ padding:"6px 14px", fontSize:12, fontWeight:active?600:400, borderRadius:"999px", border:"0.5px solid " + (active?c.text:"transparent"), cursor:"pointer", background:active?c.bg:"transparent", color:active?c.text:"var(--color-text-secondary)" }}>
+                  {s}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Notes */}
+        <div style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-lg)", padding:"0.85rem 1rem", marginBottom:"1rem" }}>
+          <div style={{ fontSize:12, fontWeight:600, color:"var(--color-text-secondary)", marginBottom:6 }}>{t("sessionNotes")}</div>
+          <textarea value={notes} onChange={function(e) { setNotes(e.target.value); }}
+            placeholder={t("notesPlaceholder")}
+            style={{ width:"100%", minHeight:50, boxSizing:"border-box", font:"inherit", fontSize:13, padding:"8px 10px", border:"0.5px solid var(--color-border-secondary)", borderRadius:"var(--border-radius-md)", background:"var(--color-background-primary)", color:"var(--color-text-primary)", resize:"vertical" }} />
+          <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginTop:6 }}>
+            {QUIK_NOTES.map(function(n) {
+              return (
+                <button key={n} onClick={function() { insertQuickNote(n); }}
+                  style={{ fontSize:11, padding:"3px 8px", borderRadius:"999px", border:"0.5px solid var(--color-border-tertiary)", cursor:"pointer", background:"var(--color-background-primary)", color:"var(--color-text-secondary)" }}>
+                  + {n}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Finish button */}
+        <button onClick={handleFinish} disabled={!materi}
+          style={{ width:"100%", padding:"16px", fontSize:16, fontWeight:700, border:"none", borderRadius:"var(--border-radius-lg)", cursor:materi?"pointer":"not-allowed", background:materi?"#a33a3a":"var(--color-background-secondary)", color:"#fff", boxShadow:materi?"0 4px 16px rgba(163,58,58,0.3)":"none" }}>
+          ⬛ Selesai & Simpan
+        </button>
+      </div>
+    );
+  }
+
+  // ── PRE-LESSON FORM (before "Mulai Ngajar") ──
+  return (
+    <div>
+      {/* Last Session Context */}
+      {lastSessionInfo ? (
+        <div style={{ background:"var(--color-background-info)", borderRadius:"var(--border-radius-lg)", padding:"0.85rem 1rem", marginBottom:"1rem", border:"0.5px solid var(--color-border-info)" }}>
+          <div style={{ fontSize:11, fontWeight:600, color:"var(--color-text-info)", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>
+            {t("lastSession")} · {lastSessionInfo.date}
+          </div>
+          <div style={{ fontSize:13, color:"var(--color-text-primary)", fontWeight:500 }}>{lastSessionInfo.materi}</div>
+          {lastSessionInfo.notes && (
+            <div style={{ fontSize:12, color:"var(--color-text-secondary)", marginTop:4, whiteSpace:"pre-wrap" }}>
+              📝 {lastSessionInfo.notes}
+            </div>
+          )}
+          {lastSessionInfo.homework && (
+            <div style={{ fontSize:12, color:"var(--color-text-warning)", marginTop:4 }}>
+              📋 PR: {lastSessionInfo.homework}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-lg)", padding:"0.85rem 1rem", marginBottom:"1rem", fontSize:12, color:"var(--color-text-tertiary)", textAlign:"center" }}>
+          {t("noPrevSession")}
+        </div>
+      )}
+
+      {/* Schedule info */}
+      {scheduleTime && (
+        <div style={{ background:"var(--color-background-success)", borderRadius:"var(--border-radius-lg)", padding:"0.7rem 1rem", marginBottom:"1rem", display:"flex", alignItems:"center", gap:8, fontSize:13, color:"var(--color-text-success)", fontWeight:500 }}>
+          🕐 Jadwal les: {scheduleTime} · {t("sessionDuration")}: 60 {t("minute")}
+        </div>
+      )}
+
+      {/* Attendance */}
+      <div style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-lg)", padding:"0.85rem 1rem", marginBottom:"1rem" }}>
+        <div style={{ fontSize:12, fontWeight:600, color:"var(--color-text-secondary)", marginBottom:8 }}>{t("attendanceLabel")}</div>
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+          {ATTENDANCE_STATUSES.map(function(s) {
+            const active = attendance === s;
+            const colorMap = {
+              "Hadir": { bg:"var(--color-background-success)", text:"var(--color-text-success)" },
+              "Izin": { bg:"var(--color-background-warning)", text:"var(--color-text-warning)" },
+              "Libur": { bg:"var(--color-background-secondary)", text:"var(--color-text-tertiary)" },
+              "No-show": { bg:"var(--color-background-danger)", text:"var(--color-text-danger)" },
+              "Reschedule": { bg:"var(--color-background-info)", text:"var(--color-text-info)" },
+            };
+            const c = colorMap[s] || colorMap["Hadir"];
+            return (
+              <button key={s} onClick={function() { setAttendance(s); }}
+                style={{ padding:"6px 14px", fontSize:12, fontWeight:active?600:400, borderRadius:"999px", border:"0.5px solid " + (active?c.text:"transparent"), cursor:"pointer", background:active?c.bg:"transparent", color:active?c.text:"var(--color-text-secondary)" }}>
+                {s}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Material */}
+      <div style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-lg)", padding:"0.85rem 1rem", marginBottom:"1rem" }}>
+        <div style={{ fontSize:12, fontWeight:600, color:"var(--color-text-secondary)", marginBottom:8 }}>{t("teachMaterial")}</div>
+        <button onClick={function() { setShowMateriPicker(function(v) { return !v; }); }}
+          style={{ width:"100%", textAlign:"left", padding:"9px 12px", fontSize:13, background:"var(--color-background-primary)", border:"0.5px solid var(--color-border-secondary)", borderRadius:"var(--border-radius-md)", cursor:"pointer", color:"var(--color-text-primary)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <span>{materi || t("chooseMaterialToTrack")}</span>
+          <span style={{ fontSize:11, color:"var(--color-text-tertiary)" }}>▼</span>
+        </button>
+        {showMateriPicker && (
+          <div style={{ marginTop:8 }}>
+            <MateriPicker instrument={instrument} value={materi} onChange={function(val) { setMateri(val); setShowMateriPicker(false); }} t={t} />
+          </div>
+        )}
+      </div>
+
+      {/* Notes with Quick Notes */}
+      <div style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-lg)", padding:"0.85rem 1rem", marginBottom:"1rem" }}>
+        <div style={{ fontSize:12, fontWeight:600, color:"var(--color-text-secondary)", marginBottom:6 }}>{t("sessionNotes")}</div>
+        <textarea value={notes} onChange={function(e) { setNotes(e.target.value); }}
+          placeholder={t("notesPlaceholder")}
+          style={{ width:"100%", minHeight:50, boxSizing:"border-box", font:"inherit", fontSize:13, padding:"8px 10px", border:"0.5px solid var(--color-border-secondary)", borderRadius:"var(--border-radius-md)", background:"var(--color-background-primary)", color:"var(--color-text-primary)", resize:"vertical" }} />
+        <div style={{ fontSize:11, color:"var(--color-text-tertiary)", marginTop:6, marginBottom:4 }}>{t("quickNotes")}</div>
+        <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+          {QUIK_NOTES.map(function(n) {
+            return (
+              <button key={n} onClick={function() { insertQuickNote(n); }}
+                style={{ fontSize:11, padding:"3px 8px", borderRadius:"999px", border:"0.5px solid var(--color-border-tertiary)", cursor:"pointer", background:"var(--color-background-primary)", color:"var(--color-text-secondary)" }}>
+                + {n}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Homework */}
+      <div style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-lg)", padding:"0.85rem 1rem", marginBottom:"1rem" }}>
+        <div style={{ fontSize:12, fontWeight:600, color:"var(--color-text-secondary)", marginBottom:6 }}>{t("homework")}</div>
+        {lastSession && lastSession.homework && (
+          <label style={{ display:"flex", alignItems:"center", gap:6, fontSize:12, color:"var(--color-text-warning)", marginBottom:8, cursor:"pointer" }}>
+            <input type="checkbox" checked={carryHomework} onChange={function(e) { setCarryHomework(e.target.checked); }} />
+            📋 {t("checkHomework")}: {lastSession.homework.slice(0, 50)}{lastSession.homework.length > 50 ? "..." : ""}
+          </label>
+        )}
+        <textarea value={homework} onChange={function(e) { setHomework(e.target.value); }}
+          placeholder={t("homeworkPlaceholder")}
+          style={{ width:"100%", minHeight:50, boxSizing:"border-box", font:"inherit", fontSize:13, padding:"8px 10px", border:"0.5px solid var(--color-border-secondary)", borderRadius:"var(--border-radius-md)", background:"var(--color-background-primary)", color:"var(--color-text-primary)", resize:"vertical" }} />
+      </div>
+
+      {/* Start Teaching Button */}
+      <button onClick={handleStart}
+        style={{ width:"100%", padding:"16px", fontSize:16, fontWeight:700, border:"none", borderRadius:"var(--border-radius-lg)", cursor:"pointer", background:"#1D9E75", color:"#fff", boxShadow:"0 4px 16px rgba(29,158,117,0.3)", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
+        ▶ Mulai Ngajar
+        {scheduleTime && <span style={{ fontSize:12, fontWeight:400, opacity:0.85 }}>({scheduleTime} · 60 menit)</span>}
+      </button>
+    </div>
+  );
+}
+
 // ─── TIMER TAB ───────────────────────────────────────────────────────────────
 
 function TimerTab({ profile, updateProfile, onSaveSession, t }) {
@@ -1474,7 +1844,7 @@ function TimerTab({ profile, updateProfile, onSaveSession, t }) {
   const initialElapsed = initialDraft
     ? (initialDraft.elapsed || 0) + (initialDraft.running ? Math.max(0, Math.floor((Date.now() - (initialDraft.savedAt || Date.now())) / 1000)) : 0)
     : 0;
-  const [running, setRunning] = useState(true);
+  const [running, setRunning] = useState(false);
   const [elapsed, setElapsed] = useState(initialElapsed);
   const [currentMateri, setCurrentMateri] = useState(initialDraft && initialDraft.currentMateri ? initialDraft.currentMateri : defaultMateri);
   const [materiStart, setMateriStart] = useState(initialDraft ? (initialDraft.materiStart || 0) : 0);
@@ -1505,7 +1875,7 @@ function TimerTab({ profile, updateProfile, onSaveSession, t }) {
       setGoal(draft.goal || "");
       setScores(normalizeScores(draft.scores));
     } else {
-      setRunning(true);
+      setRunning(false);
       setElapsed(0);
       setCurrentMateri(defaultMateri);
       setMateriStart(0);
@@ -1759,598 +2129,197 @@ function TimerTab({ profile, updateProfile, onSaveSession, t }) {
     </div>
   );
 }
+// ─── REPORT TAB ──────────────────────────────────────────────────────────────
+//
+// Per-student report for parents. Shows attendance summary and session history
+// in a clean, shareable format.
 
-// ─── METRONOME TAB ───────────────────────────────────────────────────────────
+function ReportTab({ profile, lang, t }) {
+  const sessions = profile.sessions || [];
+  const sorted = sessions.slice().sort(function(a, b) { return a.date < b.date ? 1 : -1; });
 
-function MetronomeTab({ running, setRunning, t }) {
-  const [bpm, setBpm] = useState(80);
-  const [beat, setBeat] = useState(4);
-  const [volume, setVolume] = useState(0.8);
-  const [tick, setTick] = useState(-1);
-  const [tapTimes, setTapTimes] = useState([]);
-  const timerRef = useRef(null);
-  const ctxRef = useRef(null);
+  const totalLessons = sessions.length;
+  const hadir = sessions.filter(function(s) { return s.attendance === "Hadir"; }).length;
+  const izin = sessions.filter(function(s) { return s.attendance === "Izin"; }).length;
+  const libur = sessions.filter(function(s) { return s.attendance === "Libur" || s.attendance === "No-show"; }).length;
+  const totalDurasi = sessions.reduce(function(sum, s) { return sum + (s.duration || 0); }, 0);
+  const firstDate = sessions.length ? sessions.reduce(function(a, b) { return a.date < b.date ? a : b; }).date : "-";
+  const lastDate = sorted.length ? sorted[0].date : "-";
 
-  function playClick(accent) {
-    try {
-      if (!ctxRef.current) ctxRef.current = new (window.AudioContext || window.webkitAudioContext)();
-      const ctx = ctxRef.current;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      osc.frequency.value = accent ? 1200 : 800;
-      const compressor = ctx.createDynamicsCompressor();
-      gain.connect(compressor); compressor.connect(ctx.destination);
-      gain.gain.setValueAtTime(accent ? volume * 3 : volume * 2, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
-      osc.start(); osc.stop(ctx.currentTime + 0.08);
-    } catch(e) {}
+  // Materials covered (unique)
+  const materiSet = {};
+  sessions.forEach(function(s) {
+    if (s.materi) materiSet[s.materi] = (materiSet[s.materi] || 0) + 1;
+  });
+  const topMaterials = Object.keys(materiSet).sort(function(a, b) { return materiSet[b] - materiSet[a]; }).slice(0, 8);
+
+  // Attendance breakdown
+  function attendancePct(count) {
+    return totalLessons > 0 ? Math.round((count / totalLessons) * 100) : 0;
   }
 
-  useEffect(function() {
-    if (running) {
-      let cur = 0;
-      playClick(true); setTick(0);
-      timerRef.current = setInterval(function() {
-        cur = (cur + 1) % beat;
-        setTick(cur);
-        playClick(cur === 0);
-      }, (60 / bpm) * 1000);
+  // Copy report as formatted text
+  function copyReport() {
+    var lines = [];
+    lines.push("=== LAPORAN LES " + profile.name.toUpperCase() + " ===");
+    lines.push("");
+    lines.push("Instrumen: " + (profile.defaultInstrument || "-"));
+    lines.push("Jadwal: " + formatLessonSchedule(profile, t));
+    lines.push("Periode: " + firstDate + " - " + lastDate);
+    lines.push("");
+    lines.push("— RINGKASAN —");
+    lines.push("Total les: " + totalLessons + "x");
+    lines.push("Hadir: " + hadir + "x (" + attendancePct(hadir) + "%)");
+    lines.push("Izin: " + izin + "x");
+    lines.push("Libur/No-show: " + libur + "x");
+    lines.push("Total durasi: " + formatDuration(totalDurasi));
+    lines.push("");
+    lines.push("— MATERI YANG DIAJARKAN —");
+    if (topMaterials.length === 0) {
+      lines.push("(belum ada data)");
     } else {
-      clearInterval(timerRef.current);
-      setTick(-1);
+      topMaterials.forEach(function(m) {
+        lines.push("- " + m + " (" + materiSet[m] + "x)");
+      });
     }
-    return function() { clearInterval(timerRef.current); };
-  }, [running, bpm, beat, volume]);
+    lines.push("");
+    lines.push("— RIWAYAT LES —");
+    sorted.forEach(function(s) {
+      lines.push("  " + s.date + " | " + (s.attendance || "Hadir") + " | " + (s.materi || "-") + " | " + formatDuration(s.duration));
+      if (s.notes) lines.push("    Catatan: " + s.notes);
+      if (s.homework) lines.push("    PR: " + s.homework);
+      lines.push("");
+    });
 
-  function handleTap() {
-    const now = Date.now();
-    const times = tapTimes.concat([now]).slice(-6);
-    setTapTimes(times);
-    if (times.length >= 2) {
-      const diffs = times.slice(1).map(function(t, i) { return t - times[i]; });
-      const avg = diffs.reduce(function(a, b) { return a + b; }) / diffs.length;
-      setBpm(Math.round(60000 / avg));
-    }
+    var text = lines.join("\n");
+    navigator.clipboard.writeText(text).then(function() {
+      alert("Laporan disalin ke clipboard!");
+    }).catch(function() {
+      // Fallback
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      alert("Laporan disalin!");
+    });
+  }
+
+  function formatDuration(sec) {
+    if (!sec || sec <= 0) return "0 menit";
+    var min = Math.round(sec / 60);
+    if (min < 60) return min + " menit";
+    var h = Math.floor(min / 60);
+    var m = min % 60;
+    return h + " jam" + (m > 0 ? " " + m + " menit" : "");
   }
 
   return (
     <div>
-      <div style={{ textAlign:"center", margin:"1.5rem 0" }}>
-        <div style={{ fontSize:56, fontWeight:500, color:"var(--color-text-primary)", lineHeight:1 }}>{bpm}</div>
-        <div style={{ fontSize:13, color:"var(--color-text-secondary)", marginTop:4 }}>BPM</div>
+      {/* Header */}
+      <div style={{ background:"linear-gradient(135deg,#1a1a2e 0%,#16213e 100%)", borderRadius:"var(--border-radius-lg)", padding:"1.2rem", marginBottom:"1rem", color:"#fff" }}>
+        <div style={{ fontSize:18, fontWeight:700, marginBottom:4 }}>{profile.name}</div>
+        <div style={{ fontSize:13, opacity:0.85, marginBottom:2 }}>{profile.defaultInstrument || "-"}</div>
+        <div style={{ fontSize:12, opacity:0.7 }}>{t("lessonSchedule")}: {formatLessonSchedule(profile, t)}</div>
       </div>
-      <div style={{ margin:"0 0 1.25rem" }}>
-        <input type="range" min={30} max={240} step={1} value={bpm} onChange={function(e) { setBpm(+e.target.value); }} style={{ width:"100%" }} />
-        <div style={{ display:"flex", justifyContent:"space-between", fontSize:11, color:"var(--color-text-tertiary)" }}><span>30</span><span>240</span></div>
-      </div>
-      <div style={{ margin:"0 0 1.25rem" }}>
-        <div style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:"var(--color-text-secondary)", marginBottom:4 }}>
-          <span>{t("volume")}</span><span>{Math.round(volume * 100)}%</span>
+
+      {/* Summary cards */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:8, marginBottom:"1rem" }}>
+        <div style={{ background:"var(--color-background-success)", borderRadius:"var(--border-radius-md)", padding:"10px", textAlign:"center" }}>
+          <div style={{ fontSize:11, color:"var(--color-text-success)" }}>Hadir</div>
+          <div style={{ fontSize:22, fontWeight:700, color:"var(--color-text-success)", marginTop:2 }}>{hadir}</div>
+          <div style={{ fontSize:10, color:"var(--color-text-success)", opacity:0.7 }}>{attendancePct(hadir)}%</div>
         </div>
-        <input type="range" min={0.1} max={1.5} step={0.05} value={volume} onChange={function(e) { setVolume(+e.target.value); }} style={{ width:"100%" }} />
+        <div style={{ background:"var(--color-background-warning)", borderRadius:"var(--border-radius-md)", padding:"10px", textAlign:"center" }}>
+          <div style={{ fontSize:11, color:"var(--color-text-warning)" }}>Izin</div>
+          <div style={{ fontSize:22, fontWeight:700, color:"var(--color-text-warning)", marginTop:2 }}>{izin}</div>
+          <div style={{ fontSize:10, color:"var(--color-text-warning)", opacity:0.7 }}>{attendancePct(izin)}%</div>
+        </div>
+        <div style={{ background:"var(--color-background-danger)", borderRadius:"var(--border-radius-md)", padding:"10px", textAlign:"center" }}>
+          <div style={{ fontSize:11, color:"var(--color-text-danger)" }}>Libur</div>
+          <div style={{ fontSize:22, fontWeight:700, color:"var(--color-text-danger)", marginTop:2 }}>{libur}</div>
+          <div style={{ fontSize:10, color:"var(--color-text-danger)", opacity:0.7 }}>{attendancePct(libur)}%</div>
+        </div>
+        <div style={{ background:"var(--color-background-info)", borderRadius:"var(--border-radius-md)", padding:"10px", textAlign:"center" }}>
+          <div style={{ fontSize:11, color:"var(--color-text-info)" }}>Total</div>
+          <div style={{ fontSize:22, fontWeight:700, color:"var(--color-text-info)", marginTop:2 }}>{totalLessons}</div>
+          <div style={{ fontSize:10, color:"var(--color-text-info)", opacity:0.7 }}>les</div>
+        </div>
       </div>
-      <div style={{ display:"flex", gap:8, justifyContent:"center", marginBottom:"1.5rem" }}>
-        {Array.from({ length: beat }).map(function(_, i) {
-          return (
-            <div key={i} style={{ width:40, height:40, borderRadius:"50%", background:tick===i?(i===0?"#1D9E75":"#378ADD"):"var(--color-background-secondary)", border:"0.5px solid " + (tick===i?"transparent":"var(--color-border-tertiary)"), transition:"background 0.05s" }} />
-          );
-        })}
+
+      {/* Duration & period */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:"1rem" }}>
+        <div style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-md)", padding:"0.85rem 1rem" }}>
+          <div style={{ fontSize:11, color:"var(--color-text-tertiary)", marginBottom:2 }}>Total Durasi</div>
+          <div style={{ fontSize:16, fontWeight:600, color:"var(--color-text-primary)" }}>{formatDuration(totalDurasi)}</div>
+        </div>
+        <div style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-md)", padding:"0.85rem 1rem" }}>
+          <div style={{ fontSize:11, color:"var(--color-text-tertiary)", marginBottom:2 }}>Periode</div>
+          <div style={{ fontSize:14, fontWeight:500, color:"var(--color-text-primary)" }}>{firstDate} — {lastDate}</div>
+        </div>
       </div>
-      <div style={{ display:"flex", gap:8, marginBottom:"1rem", alignItems:"center" }}>
-        <div style={{ fontSize:13, color:"var(--color-text-secondary)", whiteSpace:"nowrap" }}>{t("beats")}</div>
-        {[2,3,4,6].map(function(b) {
-          return (
-            <button key={b} onClick={function() { setBeat(b); }}
-              style={{ flex:1, padding:"7px", fontSize:13, background:beat===b?"var(--color-background-info)":"transparent", color:beat===b?"var(--color-text-info)":"var(--color-text-secondary)", border:"0.5px solid " + (beat===b?"var(--color-border-info)":"var(--color-border-tertiary)"), borderRadius:"var(--border-radius-md)", cursor:"pointer" }}>
-              {b}/4
-            </button>
-          );
-        })}
-      </div>
-      <div style={{ display:"flex", gap:8 }}>
-        <button onClick={function() { setRunning(function(r) { return !r; }); }}
-          style={{ flex:2, padding:"11px", fontSize:14, fontWeight:500, background:running?"var(--color-background-danger)":"#1D9E75", color:running?"var(--color-text-danger)":"#fff", border:running?"0.5px solid var(--color-border-danger)":"none", borderRadius:"var(--border-radius-md)", cursor:"pointer" }}>
-          {running ? t("stop") : t("start")}
-        </button>
-        <button onClick={handleTap}
-          style={{ flex:1, padding:"11px", fontSize:13, border:"0.5px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-md)", background:"transparent", color:"var(--color-text-secondary)", cursor:"pointer" }}>
-          Tap
-        </button>
-      </div>
-      <div style={{ marginTop:"1.5rem", display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
-        {[70,80,100,120,140,160].map(function(b) {
-          return (
-            <button key={b} onClick={function() { setBpm(b); }}
-              style={{ padding:"8px", fontSize:12, border:"0.5px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-md)", background:bpm===b?"var(--color-background-secondary)":"transparent", color:"var(--color-text-secondary)", cursor:"pointer" }}>
-              {b} bpm
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
-// ─── LOG TAB ─────────────────────────────────────────────────────────────────
+      {/* Top Materials */}
+      {topMaterials.length > 0 && (
+        <div style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-lg)", padding:"0.85rem 1rem", marginBottom:"1rem" }}>
+          <div style={{ fontSize:12, fontWeight:600, color:"var(--color-text-secondary)", marginBottom:8 }}>Materi yang Diajarkan</div>
+          <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+            {topMaterials.map(function(m) {
+              return (
+                <span key={m} style={{ fontSize:11, padding:"3px 8px", borderRadius:"999px", background:"var(--color-background-info)", color:"var(--color-text-info)", fontWeight:500 }}>
+                  {m} <span style={{ opacity:0.6 }}>×{materiSet[m]}</span>
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
-function LogTab({ profile, updateProfile, t }) {
-  const sessions = profile.sessions.slice().reverse();
-  const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState(null);
+      {/* Copy Report Button */}
+      <button onClick={copyReport}
+        style={{ width:"100%", padding:"12px", background:"#1D9E75", color:"#fff", border:"none", borderRadius:"var(--border-radius-lg)", fontSize:14, fontWeight:600, cursor:"pointer", marginBottom:"1rem", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
+        📋 Salin Laporan
+      </button>
 
-  function startEdit(session) {
-    setEditingId(session.id);
-    setEditForm({
-      date: session.date,
-      materi: session.materi || "",
-      duration: String(Math.max(1, Math.round((session.duration || 60) / 60))),
-      notes: session.notes || "",
-      attendance: session.attendance || "Hadir",
-      homework: session.homework || "",
-      goal: session.goal || "",
-      scores: normalizeScores(session.scores),
-    });
-  }
+      {/* Session History */}
+      <div style={{ fontSize:12, fontWeight:600, color:"var(--color-text-secondary)", marginBottom:8 }}>{t("log")} ({totalLessons} les)</div>
+      {sorted.length === 0 ? (
+        <div style={{ textAlign:"center", padding:"2rem 0", fontSize:13, color:"var(--color-text-tertiary)" }}>
+          Belum ada sesi les tercatat
+        </div>
+      ) : sorted.map(function(s) {
+        const attColor = {
+          "Hadir": "var(--color-text-success)",
+          "Izin": "var(--color-text-warning)",
+          "Libur": "var(--color-text-tertiary)",
+          "No-show": "var(--color-text-danger)",
+          "Reschedule": "var(--color-text-info)",
+        }[s.attendance] || "var(--color-text-success)";
+        const attBg = {
+          "Hadir": "var(--color-background-success)",
+          "Izin": "var(--color-background-warning)",
+          "Libur": "var(--color-background-secondary)",
+          "No-show": "var(--color-background-danger)",
+          "Reschedule": "var(--color-background-info)",
+        }[s.attendance] || "var(--color-background-success)";
 
-  function setEditField(key, value) {
-    setEditForm(function(prev) {
-      return Object.assign({}, prev, { [key]: value });
-    });
-  }
-
-  function setEditScore(key, value) {
-    setEditForm(function(prev) {
-      return Object.assign({}, prev, {
-        scores: Object.assign({}, prev.scores, { [key]: Number(value) }),
-      });
-    });
-  }
-
-  function saveEdit(id) {
-    if (!editForm) return;
-    updateProfile(function(p) {
-      return Object.assign({}, p, {
-        sessions: p.sessions.map(function(session) {
-          if (session.id !== id) return session;
-          return Object.assign({}, session, {
-            date: editForm.date || session.date,
-            materi: editForm.materi || session.materi,
-            duration: Math.max(1, (parseInt(editForm.duration, 10) || 1) * 60),
-            notes: editForm.notes.trim(),
-            attendance: editForm.attendance,
-            homework: editForm.homework.trim(),
-            goal: editForm.goal.trim(),
-            scores: normalizeScores(editForm.scores),
-          });
-        }),
-      });
-    });
-    setEditingId(null);
-    setEditForm(null);
-  }
-
-  async function handleDelete(id) {
-    try {
-      await deleteSupabaseSession(id);
-      updateProfile(function(p) {
-        return Object.assign({}, p, { sessions: p.sessions.filter(function(s) { return s.id !== id; }) });
-      });
-    } catch (error) {
-      console.error(error);
-    }
-  }
-
-  if (!sessions.length) {
-    return <div style={{ textAlign:"center", padding:"3rem 0", color:"var(--color-text-tertiary)", fontSize:14 }}>{t("noPracticeSessions")}</div>;
-  }
-
-  return (
-    <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-      {sessions.map(function(s) {
-        const kat = getKategori(s.instrument, s.materi);
-        const c = kat ? KAT_COLORS[kat] : null;
-        const editing = editingId === s.id && editForm;
         return (
-          <div key={s.id} style={{ background:"var(--color-background-primary)", border:"0.5px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-lg)", padding:"0.85rem 1rem" }}>
-            {editing ? (
-              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-                  <input type="date" value={editForm.date} onChange={function(e) { setEditField("date", e.target.value); }} />
-                  <input value={editForm.duration} onChange={function(e) { setEditField("duration", e.target.value); }} />
-                </div>
-                <input value={editForm.materi} onChange={function(e) { setEditField("materi", e.target.value); }} />
-                <input value={editForm.notes} onChange={function(e) { setEditField("notes", e.target.value); }} placeholder={t("notesPlaceholder")} />
-                <input value={editForm.goal} onChange={function(e) { setEditField("goal", e.target.value); }} placeholder={t("lessonGoalPlaceholder")} />
-                <input value={editForm.homework} onChange={function(e) { setEditField("homework", e.target.value); }} placeholder={t("homeworkPlaceholder")} />
-                <div style={{ display:"grid", gridTemplateColumns:"repeat(5, 1fr)", gap:5 }}>
-                  {ATTENDANCE_STATUSES.map(function(status) {
-                    return (
-                      <button key={status} onClick={function() { setEditField("attendance", status); }}
-                        style={{ padding:"7px 4px", fontSize:11, background:editForm.attendance===status?"var(--color-background-info)":"var(--color-background-secondary)", color:editForm.attendance===status?"var(--color-text-info)":"var(--color-text-secondary)", border:"0.5px solid " + (editForm.attendance===status?"var(--color-border-info)":"var(--color-border-tertiary)"), borderRadius:"var(--border-radius-md)", cursor:"pointer" }}>
-                        {status}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-                  {SCORE_KEYS.map(function(key) {
-                    return (
-                      <label key={key} style={{ fontSize:11, color:"var(--color-text-secondary)" }}>
-                        <span style={{ display:"flex", justifyContent:"space-between" }}><span>{SCORE_LABELS[key]}</span><span>{editForm.scores[key]}/5</span></span>
-                        <input type="range" min="1" max="5" step="1" value={editForm.scores[key]} onChange={function(e) { setEditScore(key, e.target.value); }} style={{ width:"100%" }} />
-                      </label>
-                    );
-                  })}
-                </div>
-                <div style={{ display:"flex", gap:8 }}>
-                  <button onClick={function() { saveEdit(s.id); }} style={{ flex:1, padding:"9px", background:"#1D9E75", color:"#fff", border:"none", borderRadius:"var(--border-radius-md)", fontSize:12, cursor:"pointer" }}>{t("saveChanges")}</button>
-                  <button onClick={function() { setEditingId(null); setEditForm(null); }} style={{ flex:1, padding:"9px", background:"transparent", color:"var(--color-text-secondary)", border:"0.5px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-md)", fontSize:12, cursor:"pointer" }}>{t("cancel")}</button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-                  <div style={{ flex:1 }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                      <span style={{ fontSize:18 }}>{INST_ICON[s.instrument] || "🎵"}</span>
-                      <span style={{ fontWeight:500, fontSize:15, color:"var(--color-text-primary)" }}>{s.instrument}</span>
-                      <span style={{ fontSize:11, color:"var(--color-text-secondary)" }}>{s.attendance || "Hadir"}</span>
-                    </div>
-                    {kat && <div style={{ display:"inline-block", marginTop:4, fontSize:11, padding:"2px 8px", borderRadius:"var(--border-radius-md)", background:c.bg, color:c.text }}>{kat}</div>}
-                    {s.materi && <div style={{ fontSize:12, color:"var(--color-text-secondary)", marginTop:4 }}>{s.materi}</div>}
-                    {s.notes && <div style={{ fontSize:12, color:"var(--color-text-tertiary)", marginTop:2 }}>{s.notes}</div>}
-                    {s.goal && <div style={{ fontSize:12, color:"var(--color-text-secondary)", marginTop:2 }}>{t("lessonGoal")}: {s.goal}</div>}
-                    {s.homework && <div style={{ fontSize:12, color:"var(--color-text-secondary)", marginTop:2 }}>{t("homework")}: {s.homework}</div>}
-                    <div style={{ fontSize:11, color:"var(--color-text-tertiary)", marginTop:3 }}>{t("evaluation")}: {averageScore(s.scores)}/5</div>
-                  </div>
-                  <div style={{ textAlign:"right", flexShrink:0, marginLeft:12 }}>
-                    <div style={{ fontSize:14, fontWeight:500, color:"#1D9E75" }}>{formatTime(s.duration)}</div>
-                    <div style={{ fontSize:11, color:"var(--color-text-tertiary)", marginTop:2 }}>{s.date}</div>
-                  </div>
-                </div>
-                <div style={{ display:"flex", gap:10, marginTop:8 }}>
-                  <button onClick={function() { startEdit(s); }} style={{ fontSize:11, color:"var(--color-text-info)", background:"none", border:"none", cursor:"pointer", padding:0 }}>{t("editSession")}</button>
-                  <button onClick={function() { handleDelete(s.id); }} style={{ fontSize:11, color:"var(--color-text-tertiary)", background:"none", border:"none", cursor:"pointer", padding:0 }}>{t("delete")}</button>
-                </div>
-              </>
-            )}
+          <div key={s.id} style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-md)", padding:"0.75rem 1rem", marginBottom:6 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
+              <span style={{ fontSize:12, fontWeight:500, color:"var(--color-text-primary)" }}>{s.date}</span>
+              <span style={{ fontSize:11, padding:"1px 8px", borderRadius:"999px", background:attBg, color:attColor, fontWeight:500 }}>
+                {s.attendance || "Hadir"}
+              </span>
+            </div>
+            <div style={{ fontSize:12, color:"var(--color-text-secondary)", marginBottom:2 }}>
+              {s.materi || "-"} · {formatDuration(s.duration)}
+            </div>
+            {s.notes && <div style={{ fontSize:11, color:"var(--color-text-tertiary)", marginTop:2, whiteSpace:"pre-wrap" }}>📝 {s.notes}</div>}
+            {s.homework && <div style={{ fontSize:11, color:"var(--color-text-warning)", marginTop:2 }}>📋 PR: {s.homework}</div>}
           </div>
         );
       })}
-    </div>
-  );
-}
-
-// ─── PROGRESS TAB ────────────────────────────────────────────────────────────
-
-function ProgressTab({ profile, updateProfile, lang, t }) {
-  const [editTarget, setEditTarget] = useState(false);
-  const [targetInput, setTargetInput] = useState(String(Math.round(profile.weeklyTarget / 60)));
-  const sessions = profile.sessions;
-  const weekKey = getWeekKey(todayStr());
-  const weekSessions = sessionsInWeek(sessions, weekKey);
-  const weekTotal = weekSessions.reduce(function(a,s) { return a + s.duration; }, 0);
-  const totalAll = sessions.reduce(function(a,s) { return a + s.duration; }, 0);
-  const todaySecs = sessions.filter(function(s) { return s.date === todayStr(); }).reduce(function(a,s) { return a + s.duration; }, 0);
-
-  const streak = (function() {
-    const days = [];
-    const seen = {};
-    sessions.forEach(function(s) { if (!seen[s.date]) { seen[s.date]=true; days.push(s.date); } });
-    days.sort().reverse();
-    if (!days.length) return 0;
-    let count = 0, cur = new Date();
-    for (let i = 0; i < days.length; i++) {
-      const diff = Math.round((cur - new Date(days[i])) / 86400000);
-      if (diff <= 1) { count++; cur = new Date(days[i]); } else break;
-    }
-    return count;
-  })();
-
-  const pct = Math.min(100, Math.round((weekTotal / profile.weeklyTarget) * 100));
-
-  const byKatInst = {};
-  sessions.forEach(function(s) {
-    const key = s.instrument + "|" + (getKategori(s.instrument, s.materi) || "Lainnya");
-    byKatInst[key] = (byKatInst[key] || 0) + s.duration;
-  });
-  const recentTargets = sessions
-    .filter(function(s) { return s.goal; })
-    .slice()
-    .reverse()
-    .slice(0, 5);
-
-  function saveTarget() {
-    const m = parseInt(targetInput) || 60;
-    updateProfile(function(p) { return Object.assign({}, p, { weeklyTarget: m * 60 }); });
-    setEditTarget(false);
-  }
-
-  const stats = [
-    { label:t("today"), val:formatTime(todaySecs) },
-    { label:t("streak"), val:streak + " " + t("day") },
-    { label:t("thisWeek"), val:formatTime(weekTotal) },
-    { label:t("total"), val:formatTime(totalAll) },
-  ];
-
-  return (
-    <div style={{ display:"flex", flexDirection:"column", gap:"1rem" }}>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-        {stats.map(function(c) {
-          return (
-            <div key={c.label} style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-md)", padding:"0.85rem" }}>
-              <div style={{ fontSize:12, color:"var(--color-text-secondary)" }}>{c.label}</div>
-              <div style={{ fontSize:22, fontWeight:500, marginTop:4, color:"var(--color-text-primary)" }}>{c.val}</div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div style={{ background:"var(--color-background-primary)", border:"0.5px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-lg)", padding:"1rem" }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-          <div style={{ fontSize:14, fontWeight:500, color:"var(--color-text-primary)" }}>{t("weeklyTarget")}</div>
-          {!editTarget ? (
-            <button onClick={function() { setEditTarget(true); }} style={{ fontSize:12, color:"var(--color-text-info)", background:"none", border:"none", cursor:"pointer" }}>{t("edit")}</button>
-          ) : (
-            <div style={{ display:"flex", gap:6, alignItems:"center" }}>
-              <input value={targetInput} onChange={function(e) { setTargetInput(e.target.value); }} style={{ width:50, textAlign:"center" }} />
-              <span style={{ fontSize:12, color:"var(--color-text-secondary)" }}>{t("minutes")}</span>
-              <button onClick={saveTarget} style={{ fontSize:12, color:"#1D9E75", background:"none", border:"none", cursor:"pointer" }}>{t("save")}</button>
-            </div>
-          )}
-        </div>
-        <div style={{ height:8, background:"var(--color-background-secondary)", borderRadius:4 }}>
-          <div style={{ width:pct+"%", height:"100%", background:"#1D9E75", borderRadius:4, transition:"width 0.4s" }} />
-        </div>
-        <div style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:"var(--color-text-secondary)", marginTop:6 }}>
-          <span>{formatTime(weekTotal)}</span>
-          <span>{pct}% {t("from")} {Math.round(profile.weeklyTarget/60)} {t("minutes")}</span>
-        </div>
-      </div>
-
-      {Object.keys(byKatInst).length > 0 && (
-        <div style={{ background:"var(--color-background-primary)", border:"0.5px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-lg)", padding:"1rem" }}>
-          <div style={{ fontSize:14, fontWeight:500, color:"var(--color-text-primary)", marginBottom:12 }}>{t("practiceBreakdown")}</div>
-          {Object.entries(byKatInst).sort(function(a,b) { return b[1]-a[1]; }).map(function(entry) {
-            const key = entry[0], sec = entry[1];
-            const parts = key.split("|");
-            const inst = parts[0], kat = parts[1];
-            const p = Math.round((sec / totalAll) * 100);
-            const c = KAT_COLORS[kat];
-            return (
-              <div key={key} style={{ marginBottom:10 }}>
-                <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:4, alignItems:"center" }}>
-                  <span style={{ color:"var(--color-text-primary)", display:"flex", alignItems:"center", gap:5 }}>
-                    <span style={{ fontSize:14 }}>{INST_ICON[inst] || "🎵"}</span>{inst} — {kat}
-                  </span>
-                  <span style={{ color:"var(--color-text-secondary)" }}>{formatTime(sec)} ({p}%)</span>
-                </div>
-                <div style={{ height:6, background:"var(--color-background-secondary)", borderRadius:3 }}>
-                  <div style={{ width:p+"%", height:"100%", background:c?c.bar:"#888780", borderRadius:3 }} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      <div style={{ background:"var(--color-background-primary)", border:"0.5px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-lg)", padding:"1rem" }}>
-        <div style={{ fontSize:14, fontWeight:500, color:"var(--color-text-primary)", marginBottom:10 }}>{t("recentTargets")}</div>
-        {recentTargets.length === 0 ? (
-          <div style={{ fontSize:12, color:"var(--color-text-tertiary)" }}>{t("noTargets")}</div>
-        ) : (
-          recentTargets.map(function(session) {
-            return (
-              <div key={session.id} style={{ padding:"7px 0", borderBottom:"0.5px solid var(--color-border-tertiary)" }}>
-                <div style={{ fontSize:12, color:"var(--color-text-secondary)" }}>{session.date}</div>
-                <div style={{ fontSize:13, color:"var(--color-text-primary)" }}>{session.goal}</div>
-              </div>
-            );
-          })
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── REPORT TAB ──────────────────────────────────────────────────────────────
-
-function ReportTab({ profile, lang, t }) {
-  const months = getMonthsWithSessions(profile.sessions);
-  const [selectedMonth, setSelectedMonth] = useState(months[0] || getMonthKey(todayStr()));
-  const [reportHtml, setReportHtml] = useState("");
-  const reportFrameRef = useRef(null);
-
-  const curSessions = sessionsInMonth(profile.sessions, selectedMonth);
-  const prevSessions = sessionsInMonth(profile.sessions, prevMonthKey(selectedMonth));
-  const curTotal = curSessions.reduce(function(a,s) { return a + s.duration; }, 0);
-  const prevTotal = prevSessions.reduce(function(a,s) { return a + s.duration; }, 0);
-  const diff = curTotal - prevTotal;
-  const insights = getReportInsights(curSessions, t);
-
-  const dayBuckets = {};
-  curSessions.forEach(function(s) {
-    dayBuckets[s.date] = (dayBuckets[s.date] || 0) + s.duration;
-  });
-  const dayRows = Object.keys(dayBuckets).sort().map(function(dateStr) {
-    const d = parseDateStr(dateStr);
-    return {
-      key: dateStr,
-      label: d.toLocaleDateString(lang === "en" ? "en-US" : "id-ID", { day:"numeric", month:"short" }),
-      total: dayBuckets[dateStr],
-    };
-  });
-  const maxDay = Math.max.apply(null, dayRows.map(function(row) { return row.total; }).concat([1]));
-
-  const weekBuckets = {};
-  curSessions.forEach(function(s) {
-    const key = getWeekKey(s.date);
-    weekBuckets[key] = (weekBuckets[key] || 0) + s.duration;
-  });
-  const weekRows = Object.keys(weekBuckets).sort().map(function(key) {
-    return { label:getWeekLabel(key, lang), total:weekBuckets[key] };
-  });
-
-  function printReport() {
-    const dateNow = new Date().toLocaleDateString(lang === "en" ? "en-US" : "id-ID", { day:"numeric", month:"long", year:"numeric" });
-    const monthLabel = getMonthLabel(selectedMonth, lang);
-    const diffText = diff === 0 ? t("sameAsPreviousMonth") : diff > 0 ? t("upFromPreviousMonth") + " " + formatMin(Math.abs(diff), lang) + " " + t("fromPreviousMonth") : t("downFromPreviousMonth") + " " + formatMin(Math.abs(diff), lang) + " " + t("fromPreviousMonth");
-    const safeProfileName = escapeHtml(profile.name);
-    const safeMonthLabel = escapeHtml(monthLabel);
-    const safeDateNow = escapeHtml(dateNow);
-    const safeDiffText = escapeHtml(diffText);
-    const safeSchedule = escapeHtml(formatLessonSchedule(profile, t));
-    const safeTopCategory = escapeHtml(insights.topCategory);
-    const safeTopMaterial = escapeHtml(insights.topMaterial);
-    const safeNextPlan = escapeHtml(insights.nextPlan);
-
-    const rows = curSessions.map(function(s) {
-      const instrument = escapeHtml(s.instrument || "-");
-      const kategori = escapeHtml(getKategori(s.instrument,s.materi) || "-");
-      const materi = escapeHtml(s.materi || "-");
-      const notes = escapeHtml(s.notes || "-");
-      const homeworkText = escapeHtml(s.homework || "-");
-      const goalText = escapeHtml(s.goal || "-");
-      return "<tr><td>" + escapeHtml(s.date) + "</td><td>" + escapeHtml(s.attendance || "Hadir") + "</td><td>" + (INST_ICON[s.instrument]||"") + " " + instrument + "</td><td>" + kategori + "</td><td>" + materi + "</td><td>" + formatTime(s.duration) + "</td><td>" + averageScore(s.scores) + "/5</td><td>" + goalText + "</td><td>" + homeworkText + "</td><td>" + notes + "</td></tr>";
-    }).join("");
-
-    const noteRows = insights.notes.length
-      ? insights.notes.map(function(note) { return "<li>" + escapeHtml(note) + "</li>"; }).join("")
-      : "<li>" + escapeHtml(t("noNotesRecorded")) + "</li>";
-    const homeworkRows = insights.homework.length
-      ? insights.homework.map(function(item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("")
-      : "<li>-</li>";
-    const goalRows = insights.goals.length
-      ? insights.goals.map(function(item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("")
-      : "<li>-</li>";
-
-    const weekChart = weekRows.map(function(row) {
-      const p = Math.round((row.total / Math.max(curTotal, 1)) * 100);
-      return "<div style='display:flex;align-items:center;gap:8px;margin-bottom:6px;'><div style='width:92px;font-size:11px;color:#666;'>" + escapeHtml(row.label) + "</div><div style='flex:1;background:#f0f0f0;border-radius:3px;height:18px;'><div style='width:" + p + "%;background:#378ADD;height:100%;border-radius:3px;'></div></div><div style='width:58px;font-size:11px;color:#444;text-align:right;'>" + formatMin(row.total, lang) + "</div></div>";
-    }).join("");
-
-    const barChart = dayRows.map(function(row) {
-      const p = Math.max(4, Math.round((row.total / maxDay) * 80));
-      return "<div style='display:flex;align-items:center;gap:8px;margin-bottom:6px;'><div style='width:54px;font-size:11px;color:#666;'>" + escapeHtml(row.label) + "</div><div style='flex:1;background:#f0f0f0;border-radius:3px;height:18px;'><div style='width:" + p + "%;background:#1D9E75;height:100%;border-radius:3px;'></div></div><div style='width:58px;font-size:11px;color:#444;text-align:right;'>" + formatMin(row.total, lang) + "</div></div>";
-    }).join("");
-
-    const onePageCss = "@page{size:A4 landscape;margin:7mm;}body{max-width:none!important;padding:0!important;font-size:10px!important;line-height:1.18!important;}h1{font-size:16px!important;margin:0 0 2px!important;}.sub{font-size:10px!important;margin-bottom:6px!important;}.grid{gap:6px!important;margin-bottom:6px!important;}.card{padding:6px 8px!important;border-radius:6px!important;}.card-label{font-size:8px!important;margin-bottom:2px!important;}.card-val{font-size:13px!important;}.summary{gap:6px!important;margin-bottom:7px!important;}.panel{padding:6px 8px!important;border-radius:6px!important;}.section{margin-bottom:7px!important;}.section-title{font-size:8px!important;margin-bottom:4px!important;letter-spacing:.03em!important;}.diff{font-size:9px!important;padding:4px 6px!important;margin-top:4px!important;}ul{padding-left:13px!important;}li{margin-bottom:1px!important;}table{table-layout:fixed!important;margin-bottom:7px!important;}th{font-size:7px!important;padding:3px 4px!important;}td{font-size:7.5px!important;padding:3px 4px!important;word-break:break-word!important;}.notes-box{min-height:34px!important;padding:6px!important;border-radius:6px!important;}.footer{margin-top:6px!important;font-size:8px!important;}@media print{body{zoom:.86;}.section,.summary,.grid,.notes-box{break-inside:avoid;}}";
-    let html = "<!DOCTYPE html><html><head><meta charset='utf-8'><title>" + escapeHtml(t("reportTitle")) + " - " + safeProfileName + "</title><style>body{font-family:Arial,sans-serif;max-width:920px;margin:0 auto;padding:30px;color:#222;font-size:13px;line-height:1.45;}h1{font-size:22px;font-weight:700;margin:0 0 4px;}.sub{color:#666;font-size:13px;margin-bottom:20px;}.section{margin-bottom:22px;}.section-title{font-size:12px;font-weight:700;color:#444;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;}.card{background:#f8f8f8;border-radius:8px;padding:11px 13px;border:1px solid #eee;}.card-label{font-size:10px;color:#777;margin-bottom:4px;}.card-val{font-size:18px;font-weight:700;}.summary{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:22px;}.panel{border:1px solid #e5e5e5;border-radius:8px;padding:14px 16px;}.diff{font-size:12px;padding:8px 12px;background:#f0fdf4;border-left:3px solid #1D9E75;color:#333;border-radius:4px;margin-top:10px;}ul{margin:0;padding-left:18px;}li{margin-bottom:5px;}table{width:100%;border-collapse:collapse;margin-bottom:20px;}th{background:#f8f8f8;padding:7px 8px;text-align:left;font-size:9px;color:#666;font-weight:700;border-bottom:1px solid #e8e8e8;}td{padding:7px 8px;border-bottom:1px solid #f0f0f0;font-size:11px;vertical-align:top;}.notes-box{border:1px solid #ddd;border-radius:8px;padding:16px;min-height:76px;}.footer{margin-top:28px;font-size:11px;color:#aaa;text-align:center;}@media print{body{padding:16px;}.grid{gap:8px;}.section{break-inside:avoid;}}" + onePageCss + "</style></head><body><h1>" + escapeHtml(t("reportTitle")) + "</h1><div class='sub'>" + safeProfileName + " &nbsp;·&nbsp; " + safeMonthLabel + " &nbsp;·&nbsp; " + safeSchedule + " &nbsp;·&nbsp; " + escapeHtml(t("printed")) + " " + safeDateNow + "</div><div class='grid'><div class='card'><div class='card-label'>" + escapeHtml(t("totalPractice")) + "</div><div class='card-val'>" + formatMin(curTotal, lang) + "</div></div><div class='card'><div class='card-label'>" + escapeHtml(t("sessionCount")) + "</div><div class='card-val'>" + curSessions.length + "</div></div><div class='card'><div class='card-label'>" + escapeHtml(t("evaluation")) + "</div><div class='card-val'>" + insights.averageScore + "/5</div></div><div class='card'><div class='card-label'>" + escapeHtml(t("attendance")) + "</div><div class='card-val' style='font-size:13px;line-height:1.25;'>" + escapeHtml(insights.attendanceSummary) + "</div></div></div><div class='summary'><div class='panel'><div class='section-title'>" + escapeHtml(t("reportSummary")) + "</div><div>" + safeDiffText + "</div><div class='diff'>" + safeTopCategory + " · " + safeTopMaterial + " · " + formatMin(insights.topMaterialDuration, lang) + "</div></div><div class='panel'><div class='section-title'>" + escapeHtml(t("nextLessonPlan")) + "</div><div>" + safeNextPlan + "</div></div></div><div class='summary'><div class='panel'><div class='section-title'>" + escapeHtml(t("lessonGoal")) + "</div><ul>" + goalRows + "</ul></div><div class='panel'><div class='section-title'>" + escapeHtml(t("homework")) + "</div><ul>" + homeworkRows + "</ul></div></div><div class='section'><div class='section-title'>" + escapeHtml(t("weeklyDuration")) + "</div>" + (weekChart || "<p style='color:#999;font-size:13px;'>" + escapeHtml(t("noSessionsThisMonth")) + "</p>") + "</div><div class='section'><div class='section-title'>" + escapeHtml(t("dailyDuration")) + "</div>" + barChart + "</div><div class='section'><div class='section-title'>" + escapeHtml(t("practiceNotes")) + "</div><div class='panel'><ul>" + noteRows + "</ul></div></div>" + (curSessions.length > 0 ? "<div class='section'><div class='section-title'>" + escapeHtml(t("learningFocus")) + "</div><table><thead><tr><th>" + escapeHtml(t("date")) + "</th><th>" + escapeHtml(t("attendance")) + "</th><th>" + escapeHtml(t("instrument")) + "</th><th>" + escapeHtml(t("category")) + "</th><th>" + escapeHtml(t("material")) + "</th><th>" + escapeHtml(t("duration")) + "</th><th>" + escapeHtml(t("evaluation")) + "</th><th>" + escapeHtml(t("lessonGoal")) + "</th><th>" + escapeHtml(t("homework")) + "</th><th>" + escapeHtml(t("notes")) + "</th></tr></thead><tbody>" + rows + "</tbody></table></div>" : "<p style='color:#999;font-size:13px;'>" + escapeHtml(t("noSessionsThisMonth")) + "</p>") + "<div class='notes-box'><div class='section-title'>" + escapeHtml(t("teacherNotes")) + "</div><div style='color:#ccc;font-size:12px;font-style:italic;'>" + escapeHtml(t("handwritten")) + "</div></div><div class='footer'>Music Practice Tracker &nbsp;·&nbsp; " + safeProfileName + "</div></body></html>";
-
-    setReportHtml(html);
-  }
-
-  function printPreview() {
-    const frame = reportFrameRef.current;
-    if (frame && frame.contentWindow) {
-      frame.contentWindow.focus();
-      frame.contentWindow.print();
-    }
-  }
-
-  if (reportHtml) {
-    return (
-      <div>
-        <div style={{ display:"flex", gap:8, marginBottom:"1rem" }}>
-          <button onClick={function() { setReportHtml(""); }}
-            style={{ flex:1, padding:"10px", border:"0.5px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-md)", background:"transparent", color:"var(--color-text-secondary)", fontSize:13, cursor:"pointer" }}>
-            {t("back")}
-          </button>
-          <button onClick={printPreview}
-            style={{ flex:2, padding:"10px", background:"#1D9E75", color:"#fff", border:"none", borderRadius:"var(--border-radius-md)", fontSize:13, fontWeight:500, cursor:"pointer" }}>
-            {t("printSavePdf")}
-          </button>
-        </div>
-        <iframe
-          ref={reportFrameRef}
-          title="Preview laporan latihan"
-          srcDoc={reportHtml}
-          style={{ width:"100%", height:"72vh", border:"0.5px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-lg)", background:"#fff" }}
-        />
-      </div>
-    );
-  }
-
-	  return (
-	    <div>
-	      <div style={{ marginBottom:"1rem" }}>
-	        <div style={{ fontSize:12, color:"var(--color-text-secondary)", marginBottom:6 }}>{t("selectMonth")}</div>
-	        {months.length === 0 ? (
-	          <div style={{ fontSize:13, color:"var(--color-text-tertiary)", padding:"1rem 0" }}>{t("noReportSessions")}</div>
-	        ) : (
-	          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-	            {months.map(function(m) {
-	              const mSessions = sessionsInMonth(profile.sessions, m);
-	              const mTotal = mSessions.reduce(function(a,s) { return a + s.duration; }, 0);
-	              return (
-	                <button key={m} onClick={function() { setSelectedMonth(m); }}
-	                  style={{ textAlign:"left", padding:"10px 14px", fontSize:13, background:selectedMonth===m?"var(--color-background-info)":"var(--color-background-secondary)", color:selectedMonth===m?"var(--color-text-info)":"var(--color-text-primary)", border:"0.5px solid " + (selectedMonth===m?"var(--color-border-info)":"var(--color-border-tertiary)"), borderRadius:"var(--border-radius-md)", cursor:"pointer" }}>
-	                  {getMonthLabel(m, lang)}
-	                  <span style={{ marginLeft:8, fontSize:11, color:selectedMonth===m?"var(--color-text-info)":"var(--color-text-tertiary)" }}>
-	                    {mSessions.length} {t("sessions")} · {formatMin(mTotal, lang)}
-	                  </span>
-	                </button>
-	              );
-	            })}
-          </div>
-        )}
-      </div>
-
-	      {months.length > 0 && (
-	        <div>
-	          <div style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-lg)", padding:"1rem", marginBottom:"1rem" }}>
-	            <div style={{ fontSize:13, fontWeight:500, color:"var(--color-text-primary)", marginBottom:10 }}>{getMonthLabel(selectedMonth, lang)}</div>
-	            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
-	              <div style={{ background:"var(--color-background-primary)", borderRadius:"var(--border-radius-md)", padding:"10px" }}>
-	                <div style={{ fontSize:11, color:"var(--color-text-secondary)" }}>{t("total")}</div>
-	                <div style={{ fontSize:18, fontWeight:500, color:"var(--color-text-primary)", marginTop:2 }}>{formatMin(curTotal, lang)}</div>
-	              </div>
-	              <div style={{ background:"var(--color-background-primary)", borderRadius:"var(--border-radius-md)", padding:"10px" }}>
-	                <div style={{ fontSize:11, color:"var(--color-text-secondary)" }}>{t("vsLastMonth")}</div>
-	                <div style={{ fontSize:18, fontWeight:500, color:diff>=0?"#1D9E75":"var(--color-text-danger)", marginTop:2 }}>
-	                  {diff === 0 ? "=" : (diff > 0 ? "+" : "") + formatMin(diff, lang)}
-	                </div>
-	              </div>
-	            </div>
-	            {weekRows.length > 0 && (
-	              <div style={{ marginBottom:14 }}>
-	                <div style={{ marginBottom:8, fontSize:12, fontWeight:500, color:"var(--color-text-secondary)" }}>{t("weeklyDuration")}</div>
-	                {weekRows.map(function(row) {
-	                  const p = Math.round((row.total / Math.max(curTotal, 1)) * 100);
-	                  return (
-	                    <div key={row.label} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:5 }}>
-	                      <div style={{ width:86, fontSize:11, color:"var(--color-text-tertiary)" }}>{row.label}</div>
-	                      <div style={{ flex:1, background:"var(--color-background-tertiary)", borderRadius:3, height:14 }}>
-	                        <div style={{ width:p+"%", background:"#378ADD", height:"100%", borderRadius:3 }} />
-	                      </div>
-	                      <div style={{ width:52, fontSize:11, color:"var(--color-text-secondary)", textAlign:"right" }}>{formatMin(row.total, lang)}</div>
-	                    </div>
-	                  );
-	                })}
-	              </div>
-	            )}
-	            <div style={{ marginBottom:8, fontSize:12, fontWeight:500, color:"var(--color-text-secondary)" }}>{t("dailyDuration")}</div>
-		            {dayRows.length === 0 ? (
-		              <div style={{ fontSize:12, color:"var(--color-text-tertiary)" }}>{t("noSessionsThisMonth")}</div>
-		            ) : dayRows.map(function(row) {
-		              return (
-	                <div key={row.key} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:5 }}>
-	                  <div style={{ width:54, fontSize:11, color:"var(--color-text-tertiary)" }}>{row.label}</div>
-	                  <div style={{ flex:1, background:"var(--color-background-tertiary)", borderRadius:3, height:14 }}>
-	                    <div style={{ width:Math.max(4, Math.round((row.total/maxDay)*100))+"%", background:"#1D9E75", height:"100%", borderRadius:3 }} />
-	                  </div>
-	                  <div style={{ width:52, fontSize:11, color:"var(--color-text-secondary)", textAlign:"right" }}>{formatMin(row.total, lang)}</div>
-	                </div>
-	              );
-	            })}
-          </div>
-          <button onClick={printReport}
-            style={{ width:"100%", padding:"12px", background:"#1D9E75", color:"#fff", border:"none", borderRadius:"var(--border-radius-lg)", fontSize:14, fontWeight:500, cursor:"pointer" }}>
-            {t("printExportPdf")}
-          </button>
-        </div>
-      )}
     </div>
   );
 }
