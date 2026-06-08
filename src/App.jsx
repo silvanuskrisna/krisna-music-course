@@ -6,7 +6,7 @@ const DRAFT_PREFIX = "mpt_draft_";
 const INSTRUMENTS = ["Gitar", "Piano", "Drum"];
 const INST_ICON = { Gitar: "🎸", Piano: "🎹", Drum: "🥁" };
 const LESSON_DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
-const ATTENDANCE_STATUSES = ["Hadir", "Izin", "Libur", "No-show", "Reschedule"];
+const ATTENDANCE_STATUSES = ["Hadir", "Izin", "No-show"];
 const SCORE_KEYS = ["timing", "technique", "reading", "expression"];
 const SCORE_LABELS = {
   timing: "Timing",
@@ -17,6 +17,7 @@ const SCORE_LABELS = {
 let lessonScheduleColumnsAvailable = true;
 let rescheduleColumnsAvailable = true;
 let sessionExtraColumnsAvailable = true;
+let cutiColumnAvailable = true;
 
 const MATERI = {
   Gitar: {
@@ -366,6 +367,18 @@ function withoutSessionExtraFields(row) {
   return next;
 }
 
+function isMissingCutiColumn(error) {
+  const message = getErrorMessage(error);
+  return error && error.code === "42703"
+    || message.indexOf("cuti") !== -1;
+}
+
+function withoutCutiField(row) {
+  const next = Object.assign({}, row);
+  delete next.cuti;
+  return next;
+}
+
 function buildStudentRow(profile, includeId) {
   let row = {
     name: profile.name,
@@ -380,6 +393,9 @@ function buildStudentRow(profile, includeId) {
   if (rescheduleColumnsAvailable) {
     row.reschedule_day = profile.rescheduleDay || null;
     row.reschedule_time = profile.rescheduleTime || null;
+  }
+  if (cutiColumnAvailable) {
+    row.cuti = profile.cuti || false;
   }
   return row;
 }
@@ -458,11 +474,17 @@ function averageScore(scores) {
 }
 
 function getTodayLessonProfiles(profiles) {
+  console.log("AgendaProfiles:", profiles ? profiles.length : "null/undefined", "profiles");
   const today = new Date().toLocaleDateString("id-ID", { weekday:"long" });
   const normalizedToday = today.charAt(0).toUpperCase() + today.slice(1);
+  const todayDate = todayStr();
   return profiles
     .filter(function(profile) {
-      return profile.lessonDay === normalizedToday || profile.rescheduleDay === normalizedToday;
+      const hasTodaySession = profile.sessions.some(function(s) { return s.date === todayDate; });
+      console.log("AgendaFilter:", profile.name, "| cuti:", profile.cuti, "| todaySession:", hasTodaySession, "| sessions:", profile.sessions.map(function(s) { return s.date; }));
+      return (profile.lessonDay === normalizedToday || profile.rescheduleDay === normalizedToday)
+        && !profile.cuti
+        && !hasTodaySession;
     })
     .sort(function(a, b) {
       const timeA = normalizeLessonTime(a.rescheduleTime || a.lessonTime);
@@ -707,6 +729,7 @@ function fromSupabaseStudent(row, sessions) {
     rescheduleDay: row.reschedule_day || null,
     rescheduleTime: row.reschedule_time ? String(row.reschedule_time).slice(0, 5) : null,
     weeklyTarget: row.weekly_target_seconds,
+    cuti: row.cuti || false,
     sessions: studentSessions,
   };
 }
@@ -724,6 +747,7 @@ async function fetchSupabaseData() {
       && Object.prototype.hasOwnProperty.call(studentsResult.data[0], "lesson_time");
     rescheduleColumnsAvailable = Object.prototype.hasOwnProperty.call(studentsResult.data[0], "reschedule_day")
       && Object.prototype.hasOwnProperty.call(studentsResult.data[0], "reschedule_time");
+    cutiColumnAvailable = Object.prototype.hasOwnProperty.call(studentsResult.data[0], "cuti");
   }
 
   const sessionsResult = await supabase
@@ -766,6 +790,14 @@ async function createSupabaseStudent(profile) {
       .select("*")
       .single();
   }
+  if (result.error && isMissingCutiColumn(result.error)) {
+    cutiColumnAvailable = false;
+    result = await supabase
+      .from("students")
+      .insert(withoutCutiField(row))
+      .select("*")
+      .single();
+  }
   if (result.error) throw result.error;
 
   return Object.assign({}, profile, { id: result.data.id });
@@ -784,6 +816,12 @@ async function syncSupabaseProfile(profile) {
     studentResult = await supabase
       .from("students")
       .upsert(withoutRescheduleFields(withoutLessonScheduleFields(studentRow)));
+  }
+  if (studentResult.error && isMissingCutiColumn(studentResult.error)) {
+    cutiColumnAvailable = false;
+    studentResult = await supabase
+      .from("students")
+      .upsert(withoutCutiField(studentRow));
   }
   if (studentResult.error) throw studentResult.error;
 
@@ -918,6 +956,7 @@ function HomeScreen({ data, onSelect, onSelectGroup, onAdd, onDelete, onReschedu
                   const inst = group.profiles[0].defaultInstrument || "Gitar";
                   const names = group.profiles.map(function(profile) { return profile.name; }).join(", ");
                   const isReschedule = group.profiles.some(function(p) { return p.rescheduleDay; });
+                  const isCuti = group.profiles.some(function(p) { return p.cuti; });
                   const now = new Date();
                   const currentHour = String(now.getHours()).padStart(2, "0");
                   const currentMin = String(now.getMinutes()).padStart(2, "0");
@@ -940,6 +979,9 @@ function HomeScreen({ data, onSelect, onSelectGroup, onAdd, onDelete, onReschedu
                           {isReschedule && (
                             <span style={{ fontSize:10, fontWeight:600, color:"var(--color-text-warning)", background:"var(--color-background-warning)", padding:"1px 6px", borderRadius:999 }}>↻</span>
                           )}
+                          {isCuti && (
+                            <span style={{ fontSize:10, fontWeight:600, color:"var(--color-text-danger)", background:"var(--color-background-danger)", padding:"1px 6px", borderRadius:999 }}>❌ Cuti</span>
+                          )}
                         </div>
                         <div style={{ fontSize:11, color:"var(--color-text-tertiary)", marginTop:3 }}>
                           {inst} · {group.profiles.length > 1 ? group.profiles.length + " murid" : "privat"}
@@ -961,18 +1003,27 @@ function HomeScreen({ data, onSelect, onSelectGroup, onAdd, onDelete, onReschedu
       )}
 
       <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:"1rem" }}>
-        {data.profiles.map(function(p) {
+        {data.profiles.slice().sort(function(a, b) {
+          if (a.cuti && !b.cuti) return 1;
+          if (!a.cuti && b.cuti) return -1;
+          return 0;
+        }).map(function(p) {
           const total = p.sessions.reduce(function(a,s) { return a + s.duration; }, 0);
           const week = sessionsInWeek(p.sessions, getWeekKey(todayStr())).reduce(function(a,s) { return a + s.duration; }, 0);
           const defaultInst = p.defaultInstrument || (p.sessions.length ? p.sessions[p.sessions.length - 1].instrument : "Gitar");
           return (
             <div className="profile-card" key={p.id} onClick={function() { onSelect(p.id); }}
-              style={{ background:"var(--color-background-primary)", border:"0.5px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-lg)", padding:"0.9rem 1rem", cursor:"pointer", display:"flex", alignItems:"center", gap:12 }}>
+              style={{ background:"var(--color-background-primary)", border:"0.5px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-lg)", padding:"0.9rem 1rem", cursor:"pointer", display:"flex", alignItems:"center", gap:12, opacity: p.cuti ? 0.55 : 1 }}>
               <div className="instrument-avatar" style={{ width:44, height:44, borderRadius:"50%", background:"var(--color-background-secondary)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>
                 {INST_ICON[defaultInst] || "🎵"}
               </div>
               <div style={{ flex:1 }}>
-                <div style={{ fontWeight:500, fontSize:15, color:"var(--color-text-primary)" }}>{p.name}</div>
+                <div style={{ fontWeight:500, fontSize:15, color:"var(--color-text-primary)", display:"flex", alignItems:"center", gap:6 }}>
+                  {p.name}
+                  {p.cuti && (
+                    <span style={{ fontSize:10, fontWeight:600, color:"var(--color-text-danger)", background:"var(--color-background-danger)", padding:"1px 6px", borderRadius:999, whiteSpace:"nowrap" }}>Cuti</span>
+                  )}
+                </div>
                 <div style={{ fontSize:12, color:"var(--color-text-secondary)", marginTop:2 }}>
                   {defaultInst} · {t("lessonSchedule")}: {formatLessonSchedule(p, t)}
                 </div>
@@ -1114,7 +1165,6 @@ function TrackerScreen({ profile, updateProfile, onBack, syncStatus, theme, onTo
           <div style={{ fontSize:12, color:"var(--color-text-secondary)", marginTop:2 }}>{t("lessonSchedule")}: {formatLessonSchedule(profile, t)}</div>
           <div className="tracker-sync-status" style={{ fontSize:11, color:"var(--color-text-tertiary)", marginTop:2 }}>{syncStatus}</div>
         </div>
-        <LanguageSwitch lang={lang} onChange={onChangeLang} />
       </div>
       <div style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-lg)", padding:"0.85rem 1rem", marginBottom:"1rem" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8 }}>
@@ -1128,7 +1178,20 @@ function TrackerScreen({ profile, updateProfile, onBack, syncStatus, theme, onTo
             )}
           </div>
           {!editSchedule && (
-            <button onClick={function() { setEditSchedule(true); }} style={{ fontSize:12, color:"var(--color-text-info)", background:"none", border:"none", cursor:"pointer" }}>{t("edit")}</button>
+            <div style={{ display:"flex", gap:6 }}>
+              <button onClick={function() { setEditSchedule(true); }} style={{ fontSize:12, color:"var(--color-text-info)", background:"none", border:"none", cursor:"pointer" }}>{t("edit")}</button>
+              <button onClick={function(e) { e.stopPropagation();
+                updateProfile(function(p) {
+                  return Object.assign({}, p, { cuti: !p.cuti });
+                });
+              }}
+                style={{ fontSize:12, fontWeight:600, whiteSpace:"nowrap",
+                  border:"none", borderRadius:"var(--border-radius-md)", cursor:"pointer",
+                  background: profile.cuti ? "var(--color-background-danger)" : "transparent",
+                  color: profile.cuti ? "var(--color-text-danger)" : "var(--color-text-tertiary)" }}>
+                {profile.cuti ? "✕ Aktifkan" : "❌ Cuti"}
+              </button>
+            </div>
           )}
         </div>
         {editSchedule && (
@@ -1211,7 +1274,6 @@ function GroupTrackerScreen({ profiles, updateGroupProfiles, onBack, syncStatus,
           <div style={{ fontSize:12, color:"var(--color-text-secondary)", marginTop:2 }}>{t("lessonSchedule")}: {formatLessonSchedule(firstProfile, t)}</div>
           <div className="tracker-sync-status" style={{ fontSize:11, color:"var(--color-text-tertiary)", marginTop:2 }}>{syncStatus}</div>
         </div>
-        <LanguageSwitch lang={lang} onChange={onChangeLang} />
       </div>
       <div style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-lg)", padding:"0.85rem 1rem", marginBottom:"1rem", fontSize:12, color:"var(--color-text-secondary)" }}>
         Sesi grup: hasil `Simpan Sesi` akan masuk ke {profiles.length} murid.
@@ -1558,7 +1620,7 @@ function TeachTab({ profile, updateProfile, onSaveSession, t, lang }) {
   const tickRef = useRef(null);
 
   const [materi, setMateri] = useState(lastSession ? lastSession.materi : getDefaultLessonMaterial(instrument));
-  const [attendance, setAttendance] = useState("Hadir");
+  const [attendance, setAttendance] = useState((profile.cuti ? "Libur" : "Hadir"));
   const [notes, setNotes] = useState("");
   const [homework, setHomework] = useState("");
   const [showMateriPicker, setShowMateriPicker] = useState(false);
@@ -1625,6 +1687,40 @@ function TeachTab({ profile, updateProfile, onSaveSession, t, lang }) {
       setSaved(false);
       setElapsed(0);
       setStartedAt(null);
+      setNotes("");
+      setHomework("");
+      setAttendance("Hadir");
+      setMateri(lastSession ? lastSession.materi : getDefaultLessonMaterial(instrument));
+      setCarryHomework(false);
+    }, 2000);
+  }
+
+  function handleQuickSave() {
+    const newSession = {
+      id: newId(),
+      date: todayStr(),
+      instrument: instrument,
+      materi: materi || "-",
+      notes: notes.trim(),
+      duration: 0,
+      attendance: attendance,
+      homework: homework.trim(),
+      scores: defaultScores(),
+      startTime: scheduleTime || null,
+    };
+
+    updateProfile(function(p) {
+      return Object.assign({}, p, {
+        sessions: p.sessions.concat([newSession]),
+        rescheduleDay: null,
+        rescheduleTime: null,
+      });
+    });
+    if (onSaveSession) onSaveSession();
+    setSaved(true);
+
+    setTimeout(function() {
+      setSaved(false);
       setNotes("");
       setHomework("");
       setAttendance("Hadir");
@@ -1769,6 +1865,13 @@ function TeachTab({ profile, updateProfile, onSaveSession, t, lang }) {
         </div>
       )}
 
+      {/* Cuti banner */}
+      {profile.cuti && (
+        <div style={{ background:"var(--color-background-danger)", borderRadius:"var(--border-radius-lg)", padding:"0.85rem 1rem", marginBottom:"1rem", display:"flex", alignItems:"center", gap:8, fontSize:14, fontWeight:600, color:"var(--color-text-danger)" }}>
+          ❌ Sedang Cuti — sesi otomatis Libur
+        </div>
+      )}
+
       {/* Schedule info */}
       {scheduleTime && (
         <div style={{ background:"var(--color-background-success)", borderRadius:"var(--border-radius-lg)", padding:"0.7rem 1rem", marginBottom:"1rem", display:"flex", alignItems:"center", gap:8, fontSize:13, color:"var(--color-text-success)", fontWeight:500 }}>
@@ -1848,12 +1951,19 @@ function TeachTab({ profile, updateProfile, onSaveSession, t, lang }) {
           style={{ width:"100%", minHeight:50, boxSizing:"border-box", font:"inherit", fontSize:13, padding:"8px 10px", border:"0.5px solid var(--color-border-secondary)", borderRadius:"var(--border-radius-md)", background:"var(--color-background-primary)", color:"var(--color-text-primary)", resize:"vertical" }} />
       </div>
 
-      {/* Start Teaching Button */}
-      <button onClick={handleStart}
-        style={{ width:"100%", padding:"16px", fontSize:16, fontWeight:700, border:"none", borderRadius:"var(--border-radius-lg)", cursor:"pointer", background:"#1D9E75", color:"#fff", boxShadow:"0 4px 16px rgba(29,158,117,0.3)", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
-        ▶ Mulai Ngajar
-        {scheduleTime && <span style={{ fontSize:12, fontWeight:400, opacity:0.85 }}>({scheduleTime} · 60 menit)</span>}
-      </button>
+      {/* Quick Save for Izin/Libur — simpan langsung tanpa timer */}
+      {(attendance === "Izin" || attendance === "Libur") ? (
+        <button onClick={handleQuickSave}
+          style={{ width:"100%", padding:"16px", fontSize:16, fontWeight:700, border:"none", borderRadius:"var(--border-radius-lg)", cursor:"pointer", background:"#9B59B6", color:"#fff", boxShadow:"0 4px 16px rgba(155,89,182,0.3)", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
+          📝 Simpan ({attendance})
+        </button>
+      ) : (
+        <button onClick={handleStart}
+          style={{ width:"100%", padding:"16px", fontSize:16, fontWeight:700, border:"none", borderRadius:"var(--border-radius-lg)", cursor:"pointer", background:"#1D9E75", color:"#fff", boxShadow:"0 4px 16px rgba(29,158,117,0.3)", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
+          ▶ Mulai Ngajar
+          {scheduleTime && <span style={{ fontSize:12, fontWeight:400, opacity:0.85 }}>({scheduleTime} · 60 menit)</span>}
+        </button>
+      )}
     </div>
   );
 }
@@ -2153,82 +2263,91 @@ function TimerTab({ profile, updateProfile, onSaveSession, t }) {
     </div>
   );
 }
-// ─── REPORT TAB ──────────────────────────────────────────────────────────────
+// ─── REPORT TAB (Rangkuman) ─────────────────────────────────────────────────
 //
-// Per-student report for parents. Shows attendance summary and session history
-// in a clean, shareable format.
+// Compact bulanan summary. Printable full report via Cetak/PDF.
 
 function ReportTab({ profile, lang, t }) {
-  const sessions = profile.sessions || [];
-  const sorted = sessions.slice().sort(function(a, b) { return a.date < b.date ? 1 : -1; });
+  const allSessions = profile.sessions || [];
+  const [selectedMonth, setSelectedMonth] = useState(null);
+  const [payments, setPayments] = useState([]);
+  const [showTopup, setShowTopup] = useState(false);
+  const [topupDate, setTopupDate] = useState("");
+  const [topupSessions, setTopupSessions] = useState(4);
+  const [topupAmount, setTopupAmount] = useState("");
+  const [topupNotes, setTopupNotes] = useState("");
 
-  const totalLessons = sessions.length;
-  const hadir = sessions.filter(function(s) { return s.attendance === "Hadir"; }).length;
-  const izin = sessions.filter(function(s) { return s.attendance === "Izin"; }).length;
-  const libur = sessions.filter(function(s) { return s.attendance === "Libur" || s.attendance === "No-show"; }).length;
-  const totalDurasi = sessions.reduce(function(sum, s) { return sum + (s.duration || 0); }, 0);
-  const firstDate = sessions.length ? sessions.reduce(function(a, b) { return a.date < b.date ? a : b; }).date : "-";
-  const lastDate = sorted.length ? sorted[0].date : "-";
+  // Fetch payments for this student
+  useEffect(function() {
+    if (!supabase || !profile.id) return;
+    setPayments([]);
+    supabase.from("payments").select("*").eq("student_id", profile.id).order("topup_date", { ascending: false }).then(function(res) {
+      if (res.data) setPayments(res.data);
+    });
+  }, [profile.id]);
 
-  // Materials covered (unique)
-  const materiSet = {};
+  // Save a top-up
+  async function saveTopup() {
+    if (!supabase || !profile.id || !topupSessions) return;
+    var date = topupDate || new Date().toISOString().split("T")[0];
+    var res = await supabase.from("payments").insert({
+      student_id: profile.id,
+      topup_date: date,
+      sessions_count: parseInt(topupSessions),
+      amount: topupAmount ? parseInt(topupAmount) : null,
+      notes: topupNotes || null
+    }).select();
+    if (res.error) return;
+    setPayments([res.data[0], ...payments]);
+    setShowTopup(false);
+    setTopupSessions(4);
+    setTopupAmount("");
+    setTopupNotes("");
+  }
+
+  // Month helpers
+  const MONTHS = lang === "en"
+    ? ["January","February","March","April","May","June","July","August","September","October","November","December"]
+    : ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+
+  function monthKey(dateStr) { return dateStr ? dateStr.substring(0, 7) : ""; }
+
+  function monthLabel(yearMonth) {
+    if (!yearMonth) return "";
+    var parts = yearMonth.split("-");
+    return MONTHS[parseInt(parts[1], 10) - 1] + " " + parts[0];
+  }
+
+  // Collect all available months from sessions, sorted oldest first
+  var availableMonths = [];
+  var seen = {};
+  allSessions.slice().sort(function(a, b) { return a.date > b.date ? 1 : -1; }).forEach(function(s) {
+    var mk = monthKey(s.date);
+    if (mk && !seen[mk]) { seen[mk] = true; availableMonths.push(mk); }
+  });
+
+  // Default to latest available month
+  var activeMonth = selectedMonth || (availableMonths.length > 0 ? availableMonths[availableMonths.length - 1] : monthKey(new Date().toISOString()));
+
+  // Filter sessions by selected month
+  var sessions = allSessions.filter(function(s) { return monthKey(s.date) === activeMonth; });
+  sessions.sort(function(a, b) { return a.date < b.date ? 1 : -1; });
+
+  // Stats for the month
+  var totalLessons = sessions.length;
+  var hadir = sessions.filter(function(s) { return s.attendance === "Hadir"; }).length;
+  var izin = sessions.filter(function(s) { return s.attendance === "Izin"; }).length;
+  var libur = sessions.filter(function(s) { return s.attendance === "Libur" || s.attendance === "No-show"; }).length;
+  var totalDurasi = sessions.reduce(function(sum, s) { return sum + (s.duration || 0); }, 0);
+
+  // Materials covered
+  var materiSet = {};
   sessions.forEach(function(s) {
     if (s.materi) materiSet[s.materi] = (materiSet[s.materi] || 0) + 1;
   });
-  const topMaterials = Object.keys(materiSet).sort(function(a, b) { return materiSet[b] - materiSet[a]; }).slice(0, 8);
+  var topMaterials = Object.keys(materiSet).sort(function(a, b) { return materiSet[b] - materiSet[a]; }).slice(0, 8);
 
-  // Attendance breakdown
-  function attendancePct(count) {
-    return totalLessons > 0 ? Math.round((count / totalLessons) * 100) : 0;
-  }
-
-  // Copy report as formatted text
-  function copyReport() {
-    var lines = [];
-    lines.push("=== LAPORAN LES " + profile.name.toUpperCase() + " ===");
-    lines.push("");
-    lines.push("Instrumen: " + (profile.defaultInstrument || "-"));
-    lines.push("Jadwal: " + formatLessonSchedule(profile, t));
-    lines.push("Periode: " + firstDate + " - " + lastDate);
-    lines.push("");
-    lines.push("— RINGKASAN —");
-    lines.push("Total les: " + totalLessons + "x");
-    lines.push("Hadir: " + hadir + "x (" + attendancePct(hadir) + "%)");
-    lines.push("Izin: " + izin + "x");
-    lines.push("Libur/No-show: " + libur + "x");
-    lines.push("Total durasi: " + formatDuration(totalDurasi));
-    lines.push("");
-    lines.push("— MATERI YANG DIAJARKAN —");
-    if (topMaterials.length === 0) {
-      lines.push("(belum ada data)");
-    } else {
-      topMaterials.forEach(function(m) {
-        lines.push("- " + m + " (" + materiSet[m] + "x)");
-      });
-    }
-    lines.push("");
-    lines.push("— RIWAYAT LES —");
-    sorted.forEach(function(s) {
-      lines.push("  " + s.date + " | " + (s.attendance || "Hadir") + " | " + (s.materi || "-") + " | " + formatDuration(s.duration));
-      if (s.notes) lines.push("    Catatan: " + s.notes);
-      if (s.homework) lines.push("    PR: " + s.homework);
-      lines.push("");
-    });
-
-    var text = lines.join("\n");
-    navigator.clipboard.writeText(text).then(function() {
-      alert("Laporan disalin ke clipboard!");
-    }).catch(function() {
-      // Fallback
-      var ta = document.createElement("textarea");
-      ta.value = text;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
-      alert("Laporan disalin!");
-    });
-  }
+  function attendancePct(count) { return totalLessons > 0 ? Math.round((count / totalLessons) * 100) : 0; }
 
   function formatDuration(sec) {
     if (!sec || sec <= 0) return "0 menit";
@@ -2239,128 +2358,286 @@ function ReportTab({ profile, lang, t }) {
     return h + " jam" + (m > 0 ? " " + m + " menit" : "");
   }
 
+  // Payment balance
+  var totalPrepaid = payments.reduce(function(s, p) { return s + parseInt(p.sessions_count); }, 0);
+  var allHadir = allSessions.filter(function(s) { return s.attendance === "Hadir"; }).length;
+  var saldo = totalPrepaid - allHadir;
+  if (saldo < 0) saldo = 0;
+  var saldoStatus = saldo <= 0 ? "Habis" : saldo <= 2 ? "Hampir Habis" : "Tersedia";
+
+  function formatDateShort(dateStr) {
+    if (!dateStr) return "";
+    var d = new Date(dateStr + "T00:00:00");
+    return d.getDate() + " " + MONTHS[d.getMonth()] + " " + d.getFullYear();
+  }
+
+  function navigateMonth(dir) {
+    var idx = availableMonths.indexOf(activeMonth);
+    if (idx === -1) return;
+    var newIdx = idx + dir;
+    if (newIdx >= 0 && newIdx < availableMonths.length) {
+      setSelectedMonth(availableMonths[newIdx]);
+    }
+  }
+
+  // Format date to readable Indonesian (e.g., "Senin, 1 Juni 2026")
+  function formatDateLong(dateStr) {
+    if (!dateStr) return "";
+    var d = new Date(dateStr + "T00:00:00");
+    var hari = (lang === "en" ? ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"] : ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"])[d.getDay()];
+    var tgl = d.getDate();
+    var bln = MONTHS[d.getMonth()];
+    var thn = d.getFullYear();
+    return hari + ", " + tgl + " " + bln + " " + thn;
+  }
+
   return (
     <div>
-      {/* Header */}
-      <div style={{ background:"linear-gradient(135deg,#1a1a2e 0%,#16213e 100%)", borderRadius:"var(--border-radius-lg)", padding:"1.2rem", marginBottom:"1rem", color:"#fff" }}>
-        <div style={{ fontSize:18, fontWeight:700, marginBottom:4 }}>{profile.name}</div>
-        <div style={{ fontSize:13, opacity:0.85, marginBottom:2 }}>{profile.defaultInstrument || "-"}</div>
-        <div style={{ fontSize:12, opacity:0.7 }}>{t("lessonSchedule")}: {formatLessonSchedule(profile, t)}</div>
-      </div>
 
-      {/* Summary cards */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:8, marginBottom:"1rem" }}>
-        <div style={{ background:"var(--color-background-success)", borderRadius:"var(--border-radius-md)", padding:"10px", textAlign:"center" }}>
-          <div style={{ fontSize:11, color:"var(--color-text-success)" }}>Hadir</div>
-          <div style={{ fontSize:22, fontWeight:700, color:"var(--color-text-success)", marginTop:2 }}>{hadir}</div>
-          <div style={{ fontSize:10, color:"var(--color-text-success)", opacity:0.7 }}>{attendancePct(hadir)}%</div>
-        </div>
-        <div style={{ background:"var(--color-background-warning)", borderRadius:"var(--border-radius-md)", padding:"10px", textAlign:"center" }}>
-          <div style={{ fontSize:11, color:"var(--color-text-warning)" }}>Izin</div>
-          <div style={{ fontSize:22, fontWeight:700, color:"var(--color-text-warning)", marginTop:2 }}>{izin}</div>
-          <div style={{ fontSize:10, color:"var(--color-text-warning)", opacity:0.7 }}>{attendancePct(izin)}%</div>
-        </div>
-        <div style={{ background:"var(--color-background-danger)", borderRadius:"var(--border-radius-md)", padding:"10px", textAlign:"center" }}>
-          <div style={{ fontSize:11, color:"var(--color-text-danger)" }}>Libur</div>
-          <div style={{ fontSize:22, fontWeight:700, color:"var(--color-text-danger)", marginTop:2 }}>{libur}</div>
-          <div style={{ fontSize:10, color:"var(--color-text-danger)", opacity:0.7 }}>{attendancePct(libur)}%</div>
-        </div>
-        <div style={{ background:"var(--color-background-info)", borderRadius:"var(--border-radius-md)", padding:"10px", textAlign:"center" }}>
-          <div style={{ fontSize:11, color:"var(--color-text-info)" }}>Total</div>
-          <div style={{ fontSize:22, fontWeight:700, color:"var(--color-text-info)", marginTop:2 }}>{totalLessons}</div>
-          <div style={{ fontSize:10, color:"var(--color-text-info)", opacity:0.7 }}>les</div>
-        </div>
-      </div>
+      {/* ── Print-only full report ── */}
+      <style>{`
+        @media print {
+          html, body { height: auto !important; overflow: visible !important; background: #fff !important; margin: 0 !important; padding: 0 !important; }
+          body * { visibility: hidden !important; }
+          .print-report, .print-report * { visibility: visible !important; }
+          .print-report { display: block !important; position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; padding: 40px !important; background: #fff !important; color: #000 !important; box-sizing: border-box !important; }
+          .print-report * { color: #000 !important; background: transparent !important; box-shadow: none !important; border-color: #ccc !important; }
+          .rangkuman-screen { display: none !important; }
+          @page { margin: 0; }
+        }
+      `}</style>
 
-      {/* Duration & period */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:"1rem" }}>
-        <div style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-md)", padding:"0.85rem 1rem" }}>
-          <div style={{ fontSize:11, color:"var(--color-text-tertiary)", marginBottom:2 }}>Total Durasi</div>
-          <div style={{ fontSize:16, fontWeight:600, color:"var(--color-text-primary)" }}>{formatDuration(totalDurasi)}</div>
-        </div>
-        <div style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-md)", padding:"0.85rem 1rem" }}>
-          <div style={{ fontSize:11, color:"var(--color-text-tertiary)", marginBottom:2 }}>Periode</div>
-          <div style={{ fontSize:14, fontWeight:500, color:"var(--color-text-primary)" }}>{firstDate} — {lastDate}</div>
-        </div>
-      </div>
+      {/* ── Screen: Rangkuman ── */}
+      <div className="rangkuman-screen">
 
-      {/* Top Materials */}
-      {topMaterials.length > 0 && (
-        <div style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-lg)", padding:"0.85rem 1rem", marginBottom:"1rem" }}>
-          <div style={{ fontSize:12, fontWeight:600, color:"var(--color-text-secondary)", marginBottom:8 }}>Materi yang Diajarkan</div>
-          <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
-            {topMaterials.map(function(m) {
-              return (
-                <span key={m} style={{ fontSize:11, padding:"3px 8px", borderRadius:"999px", background:"var(--color-background-info)", color:"var(--color-text-info)", fontWeight:500 }}>
-                  {m} <span style={{ opacity:0.6 }}>×{materiSet[m]}</span>
-                </span>
-              );
-            })}
+        {/* Month Picker and name inline */}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"1rem" }}>
+          <div>
+            <div style={{ fontSize:15, fontWeight:600, color:"var(--color-text-primary)" }}>{profile.name}</div>
+            <div style={{ fontSize:11, color:"var(--color-text-tertiary)", marginTop:1 }}>{profile.defaultInstrument || "-"}</div>
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+            <button onClick={function() { navigateMonth(-1); }}
+              style={{ background:"var(--color-background-secondary)", border:"1px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-sm)", padding:"4px 10px", fontSize:14, cursor:"pointer", color:"var(--color-text-primary)", opacity: availableMonths.indexOf(activeMonth) <= 0 ? 0.3 : 1 }}
+              disabled={availableMonths.indexOf(activeMonth) <= 0}>
+              ◀
+            </button>
+            <div style={{ fontSize:14, fontWeight:600, color:"var(--color-text-primary)", minWidth:100, textAlign:"center" }}>{monthLabel(activeMonth)}</div>
+            <button onClick={function() { navigateMonth(1); }}
+              style={{ background:"var(--color-background-secondary)", border:"1px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-sm)", padding:"4px 10px", fontSize:14, cursor:"pointer", color:"var(--color-text-primary)", opacity: availableMonths.indexOf(activeMonth) >= availableMonths.length - 1 ? 0.3 : 1 }}>
+              ▶
+            </button>
           </div>
         </div>
-      )}
 
-      {/* Copy Report Button */}
-      <button onClick={copyReport}
-        style={{ width:"100%", padding:"12px", background:"#1D9E75", color:"#fff", border:"none", borderRadius:"var(--border-radius-lg)", fontSize:14, fontWeight:600, cursor:"pointer", marginBottom:"1rem", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
-        📋 Salin Laporan
-      </button>
-
-      {/* Session History — grouped by date */}
-      <div style={{ fontSize:12, fontWeight:600, color:"var(--color-text-secondary)", marginBottom:8 }}>{t("log")} ({totalLessons} les)</div>
-      {sorted.length === 0 ? (
-        <div style={{ textAlign:"center", padding:"2rem 0", fontSize:13, color:"var(--color-text-tertiary)" }}>
-          Belum ada sesi les tercatat
+        {/* Summary Cards */}
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:8, marginBottom:"1rem" }}>
+          <div style={{ background:"var(--color-background-success)", borderRadius:"var(--border-radius-md)", padding:"10px", textAlign:"center" }}>
+            <div style={{ fontSize:10, color:"var(--color-text-success)" }}>Hadir</div>
+            <div style={{ fontSize:22, fontWeight:700, color:"var(--color-text-success)", marginTop:2 }}>{hadir}</div>
+            <div style={{ fontSize:10, color:"var(--color-text-success)", opacity:0.7 }}>{attendancePct(hadir)}%</div>
+          </div>
+          <div style={{ background:"var(--color-background-warning)", borderRadius:"var(--border-radius-md)", padding:"10px", textAlign:"center" }}>
+            <div style={{ fontSize:10, color:"var(--color-text-warning)" }}>Izin</div>
+            <div style={{ fontSize:22, fontWeight:700, color:"var(--color-text-warning)", marginTop:2 }}>{izin}</div>
+            <div style={{ fontSize:10, color:"var(--color-text-warning)", opacity:0.7 }}>{attendancePct(izin)}%</div>
+          </div>
+          <div style={{ background:"var(--color-background-danger)", borderRadius:"var(--border-radius-md)", padding:"10px", textAlign:"center" }}>
+            <div style={{ fontSize:10, color:"var(--color-text-danger)" }}>Libur</div>
+            <div style={{ fontSize:22, fontWeight:700, color:"var(--color-text-danger)", marginTop:2 }}>{libur}</div>
+            <div style={{ fontSize:10, color:"var(--color-text-danger)", opacity:0.7 }}>{attendancePct(libur)}%</div>
+          </div>
+          <div style={{ background:"var(--color-background-info)", borderRadius:"var(--border-radius-md)", padding:"10px", textAlign:"center" }}>
+            <div style={{ fontSize:10, color:"var(--color-text-info)" }}>Total</div>
+            <div style={{ fontSize:22, fontWeight:700, color:"var(--color-text-info)", marginTop:2 }}>{totalLessons}</div>
+            <div style={{ fontSize:10, color:"var(--color-text-info)", opacity:0.7 }}>les</div>
+          </div>
         </div>
-      ) : (function() {
-        // Group sessions by date
-        var groups = {};
-        sorted.forEach(function(s) {
-          if (!groups[s.date]) groups[s.date] = [];
-          groups[s.date].push(s);
-        });
-        var dateKeys = Object.keys(groups).sort().reverse();
-        return dateKeys.map(function(date) {
-          var sessionsInDate = groups[date];
-          return (
-            <div key={date} style={{ marginBottom:"1rem" }}>
-              <div style={{ fontSize:13, fontWeight:600, color:"var(--color-text-primary)", marginBottom:6, paddingBottom:4, borderBottom:"1px solid var(--color-border-tertiary)" }}>
-                {date} <span style={{ fontWeight:400, fontSize:11, color:"var(--color-text-tertiary)" }}>({sessionsInDate.length} sesi)</span>
-              </div>
-              {sessionsInDate.map(function(s) {
-                var attColor = {
-                  "Hadir": "var(--color-text-success)",
-                  "Izin": "var(--color-text-warning)",
-                  "Libur": "var(--color-text-tertiary)",
-                  "No-show": "var(--color-text-danger)",
-                  "Reschedule": "var(--color-text-info)",
-                }[s.attendance] || "var(--color-text-success)";
-                var attBg = {
-                  "Hadir": "var(--color-background-success)",
-                  "Izin": "var(--color-background-warning)",
-                  "Libur": "var(--color-background-secondary)",
-                  "No-show": "var(--color-background-danger)",
-                  "Reschedule": "var(--color-background-info)",
-                }[s.attendance] || "var(--color-background-success)";
+
+        {/* Duration */}
+        <div style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-md)", padding:"0.75rem 1rem", marginBottom:"1rem" }}>
+          <div style={{ fontSize:11, color:"var(--color-text-tertiary)", marginBottom:1 }}>Total Durasi</div>
+          <div style={{ fontSize:16, fontWeight:600, color:"var(--color-text-primary)" }}>{formatDuration(totalDurasi)}</div>
+        </div>
+
+        {/* Materials */}
+        {topMaterials.length > 0 && (
+          <div style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-lg)", padding:"0.75rem 1rem", marginBottom:"1rem" }}>
+            <div style={{ fontSize:12, fontWeight:600, color:"var(--color-text-secondary)", marginBottom:8 }}>Materi yang Diajarkan</div>
+            <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+              {topMaterials.map(function(m) {
                 return (
-                  <div key={s.id} style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-md)", padding:"0.65rem 0.9rem", marginBottom:4 }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:3 }}>
-                      <span style={{ fontSize:12, color:"var(--color-text-secondary)" }}>
-                        {(s.materi || "-")} · {formatDuration(s.duration)}
-                      </span>
-                      <span style={{ fontSize:10, padding:"1px 7px", borderRadius:"999px", background:attBg, color:attColor, fontWeight:600 }}>
-                        {s.attendance || "Hadir"}
-                      </span>
-                    </div>
-                    {s.notes && <div style={{ fontSize:11, color:"var(--color-text-tertiary)", marginTop:2, whiteSpace:"pre-wrap" }}>📝 {s.notes}</div>}
-                    {s.homework && <div style={{ fontSize:11, color:"var(--color-text-warning)", marginTop:2 }}>📋 PR: {s.homework}</div>}
+                  <span key={m} style={{ fontSize:11, padding:"3px 8px", borderRadius:"999px", background:"var(--color-background-info)", color:"var(--color-text-info)", fontWeight:500 }}>
+                    {m} <span style={{ opacity:0.6 }}>×{materiSet[m]}</span>
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── Payment Section ── */}
+        <div style={{ background:"var(--color-background-secondary)", borderRadius:"var(--border-radius-lg)", padding:"0.75rem 1rem", marginBottom:"1rem" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+            <div style={{ fontSize:12, fontWeight:600, color:"var(--color-text-secondary)" }}>💰 Saldo & Pembayaran</div>
+            <div style={{ fontSize:11, padding:"2px 10px", borderRadius:999, background: saldo <= 0 ? "var(--color-background-danger)" : "var(--color-background-success)", color: saldo <= 0 ? "var(--color-text-danger)" : "var(--color-text-success)", fontWeight:600 }}>
+              {saldoStatus}
+            </div>
+          </div>
+
+          {/* Balance row */}
+          <div style={{ display:"flex", gap:12, marginBottom:8 }}>
+            <div style={{ flex:1, textAlign:"center", padding:"8px", background:"var(--color-background-info)", borderRadius:"var(--border-radius-md)" }}>
+              <div style={{ fontSize:10, color:"var(--color-text-info)" }}>Saldo</div>
+              <div style={{ fontSize:20, fontWeight:700, color:"var(--color-text-info)" }}>{saldo}</div>
+              <div style={{ fontSize:9, color:"var(--color-text-info)", opacity:0.7 }}>sesi</div>
+            </div>
+            <div style={{ flex:1, textAlign:"center", padding:"8px", background:"var(--color-background-success)", borderRadius:"var(--border-radius-md)" }}>
+              <div style={{ fontSize:10, color:"var(--color-text-success)" }}>Top-Up</div>
+              <div style={{ fontSize:20, fontWeight:700, color:"var(--color-text-success)" }}>{totalPrepaid}</div>
+              <div style={{ fontSize:9, color:"var(--color-text-success)", opacity:0.7 }}>sesi</div>
+            </div>
+            <div style={{ flex:1, textAlign:"center", padding:"8px", background:"var(--color-background-warning)", borderRadius:"var(--border-radius-md)" }}>
+              <div style={{ fontSize:10, color:"var(--color-text-warning)" }}>Terpakai</div>
+              <div style={{ fontSize:20, fontWeight:700, color:"var(--color-text-warning)" }}>{allHadir}</div>
+              <div style={{ fontSize:9, color:"var(--color-text-warning)", opacity:0.7 }}>sesi</div>
+            </div>
+          </div>
+
+          {/* Per-month status */}
+          <div style={{ fontSize:11, color:"var(--color-text-tertiary)", marginBottom:8 }}>
+            Bulan ini: <strong>{hadir}</strong> Hadir · <strong>{izin}</strong> Izin
+            {totalPrepaid > 0 && (
+              <span> · Dibayar <strong>{payments.length > 0 ? Math.min(hadir, totalPrepaid) : 0}</strong> dari <strong>{hadir}</strong> sesi</span>
+            )}
+          </div>
+
+          {/* Top-up form (inline toggle) */}
+          {showTopup ? (
+            <div style={{ background:"var(--color-background-primary)", borderRadius:"var(--border-radius-md)", padding:"10px", marginBottom:8 }}>
+              <div style={{ fontSize:11, fontWeight:600, color:"var(--color-text-primary)", marginBottom:6 }}>Catat Top-Up Baru</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                <div style={{ display:"flex", gap:6 }}>
+                  <input type="date" value={topupDate} onChange={function(e) { setTopupDate(e.target.value); }}
+                    style={{ flex:1, padding:"6px 8px", fontSize:12, borderRadius:"var(--border-radius-sm)", border:"1px solid var(--color-border-tertiary)", background:"var(--color-background-primary)", color:"var(--color-text-primary)" }} />
+                  <input type="number" value={topupSessions} onChange={function(e) { setTopupSessions(e.target.value); }}
+                    placeholder="Jumlah sesi" min="1" max="50"
+                    style={{ width:70, padding:"6px 8px", fontSize:12, borderRadius:"var(--border-radius-sm)", border:"1px solid var(--color-border-tertiary)", background:"var(--color-background-primary)", color:"var(--color-text-primary)" }} />
+                </div>
+                <div style={{ display:"flex", gap:6 }}>
+                  <input type="number" value={topupAmount} onChange={function(e) { setTopupAmount(e.target.value); }}
+                    placeholder="Nominal (opsional)" min="0"
+                    style={{ flex:1, padding:"6px 8px", fontSize:12, borderRadius:"var(--border-radius-sm)", border:"1px solid var(--color-border-tertiary)", background:"var(--color-background-primary)", color:"var(--color-text-primary)" }} />
+                  <input type="text" value={topupNotes} onChange={function(e) { setTopupNotes(e.target.value); }}
+                    placeholder="Catatan (opsional)"
+                    style={{ flex:1, padding:"6px 8px", fontSize:12, borderRadius:"var(--border-radius-sm)", border:"1px solid var(--color-border-tertiary)", background:"var(--color-background-primary)", color:"var(--color-text-primary)" }} />
+                </div>
+                <div style={{ display:"flex", gap:6 }}>
+                  <button onClick={saveTopup}
+                    style={{ flex:1, padding:"7px", fontSize:12, fontWeight:600, background:"var(--color-text-info)", color:"#fff", border:"none", borderRadius:"var(--border-radius-sm)", cursor:"pointer" }}>
+                    💾 Simpan
+                  </button>
+                  <button onClick={function() { setShowTopup(false); }}
+                    style={{ padding:"7px 14px", fontSize:12, background:"var(--color-background-secondary)", color:"var(--color-text-secondary)", border:"1px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-sm)", cursor:"pointer" }}>
+                    Batal
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <button onClick={function() { setShowTopup(true); }}
+              style={{ width:"100%", padding:"8px", fontSize:12, fontWeight:600, background:"var(--color-background-primary)", color:"var(--color-text-info)", border:"1px dashed var(--color-border-tertiary)", borderRadius:"var(--border-radius-md)", cursor:"pointer" }}>
+              + Catat Top-Up
+            </button>
+          )}
+
+          {/* Top-up history */}
+          {payments.length > 0 && (
+            <div style={{ marginTop:8 }}>
+              <div style={{ fontSize:10, color:"var(--color-text-tertiary)", marginBottom:4 }}>Riwayat Top-Up</div>
+              {payments.slice(0, 5).map(function(p) {
+                return (
+                  <div key={p.id} style={{ display:"flex", justifyContent:"space-between", fontSize:11, padding:"4px 0", borderBottom:"1px solid var(--color-border-tertiary)" }}>
+                    <span style={{ color:"var(--color-text-secondary)" }}>{formatDateShort(p.topup_date)}</span>
+                    <span style={{ fontWeight:600, color:"var(--color-text-success)" }}>+{p.sessions_count} sesi{p.amount ? " · Rp" + p.amount.toLocaleString("id-ID") : ""}</span>
                   </div>
                 );
               })}
             </div>
-          );
-        });
-      })()}
+          )}
+        </div>
+
+        {/* Print button */}
+        <button onClick={function() {
+          var el = document.querySelector('.print-report');
+          if (!el) return;
+          var css = '@page { margin: 0; } body { margin: 40px; font-family: Arial, sans-serif; color: #000; background: #fff; font-size: 14px; } * { box-sizing: border-box; }';
+          var html = '<!DOCTYPE html><html><head><title>Krisna Music Course</title><style>' + css + '</style></head><body>' + el.outerHTML + '</body></html>';
+          var iframe = document.createElement('iframe');
+          iframe.style.position = 'absolute';
+          iframe.style.top = '-9999px';
+          iframe.style.width = '1px';
+          iframe.style.height = '1px';
+          document.body.appendChild(iframe);
+          var doc = iframe.contentWindow.document;
+          doc.open();
+          doc.write(html);
+          doc.close();
+          iframe.contentWindow.focus();
+          setTimeout(function() { iframe.contentWindow.print(); }, 300);
+        }}
+          style={{ width:"100%", padding:"11px", background:"var(--color-background-secondary)", color:"var(--color-text-primary)", border:"1px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-lg)", fontSize:13, fontWeight:600, cursor:"pointer" }}>
+          🖨 Cetak Laporan Lengkap
+        </button>
+      </div>
+
+      {/* ── Print-only full report ── */}
+      <div className="print-report" style={{ display:"none" }}>
+        <div style={{ borderBottom:"2px solid #222", paddingBottom:"0.5rem", marginBottom:"1rem" }}>
+          <div style={{ fontSize:20, fontWeight:700, color:"#000", marginBottom:2 }}>{profile.name}</div>
+          <div style={{ fontSize:13, color:"#555" }}>{profile.defaultInstrument || "-"} · {monthLabel(activeMonth)}</div>
+        </div>
+
+        <div style={{ fontSize:14, fontWeight:600, marginBottom:"0.75rem" }}>Ringkasan</div>
+        <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12, marginBottom:"1rem" }}>
+          <tbody>
+            <tr><td style={{ padding:"4px 8px" }}>Total les</td><td style={{ padding:"4px 8px", fontWeight:600 }}>{totalLessons}x</td></tr>
+            <tr style={{ background:"#f5f5f5" }}><td style={{ padding:"4px 8px" }}>Hadir</td><td style={{ padding:"4px 8px", fontWeight:600 }}>{hadir}x ({attendancePct(hadir)}%)</td></tr>
+            <tr><td style={{ padding:"4px 8px" }}>Izin</td><td style={{ padding:"4px 8px", fontWeight:600 }}>{izin}x</td></tr>
+            <tr style={{ background:"#f5f5f5" }}><td style={{ padding:"4px 8px" }}>Libur</td><td style={{ padding:"4px 8px", fontWeight:600 }}>{libur}x</td></tr>
+            <tr><td style={{ padding:"4px 8px" }}>Total durasi</td><td style={{ padding:"4px 8px", fontWeight:600 }}>{formatDuration(totalDurasi)}</td></tr>
+          </tbody>
+        </table>
+
+        {topMaterials.length > 0 && (
+          <div style={{ marginBottom:"1rem" }}>
+            <div style={{ fontSize:14, fontWeight:600, marginBottom:"0.5rem" }}>Materi</div>
+            <div style={{ fontSize:12, lineHeight:1.7 }}>
+              {topMaterials.map(function(m) { return "- " + m + " (" + materiSet[m] + "x)"; }).join("\n")}
+            </div>
+          </div>
+        )}
+
+        {sessions.length > 0 && (
+          <div>
+            <div style={{ fontSize:14, fontWeight:600, marginBottom:"0.5rem" }}>Riwayat Les ({sessions.length} pertemuan)</div>
+            {sessions.map(function(s) {
+              var attColor = s.attendance === "Hadir" ? "#1D9E75" : s.attendance === "Izin" ? "#BA7517" : s.attendance === "No-show" ? "#CC3333" : "#888";
+              return (
+                <div key={s.id} style={{ borderBottom:"1px solid #ddd", padding:"6px 0", fontSize:12 }}>
+                  <div style={{ fontWeight:600, marginBottom:2 }}>{formatDateLong(s.date)}</div>
+                  <div style={{ color:"#555" }}>
+                    {(s.materi || "-")} · {formatDuration(s.duration)} · <span style={{ color:attColor, fontWeight:600 }}>{s.attendance || "Hadir"}</span>
+                  </div>
+                  {s.notes && <div style={{ color:"#777", marginTop:1 }}>📝 {s.notes}</div>}
+                  {s.homework && <div style={{ color:"#BA7517", marginTop:1 }}>📋 PR: {s.homework}</div>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
     </div>
   );
 }
