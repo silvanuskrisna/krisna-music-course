@@ -2318,16 +2318,19 @@ function ReportTab({ profile, lang, t }) {
     return MONTHS[parseInt(parts[1], 10) - 1] + " " + parts[0];
   }
 
-  // Collect all available months from sessions, sorted oldest first
+  // Collect all available months from sessions (sorted) + always include current month
   var availableMonths = [];
   var seen = {};
   allSessions.slice().sort(function(a, b) { return a.date > b.date ? 1 : -1; }).forEach(function(s) {
     var mk = monthKey(s.date);
     if (mk && !seen[mk]) { seen[mk] = true; availableMonths.push(mk); }
   });
+  // Always include the current month so it's navigable even with no sessions
+  var currentMonth = monthKey(new Date().toISOString());
+  if (currentMonth && !seen[currentMonth]) { seen[currentMonth] = true; availableMonths.push(currentMonth); }
 
-  // Default to latest available month
-  var activeMonth = selectedMonth || (availableMonths.length > 0 ? availableMonths[availableMonths.length - 1] : monthKey(new Date().toISOString()));
+  // Default to current month (not latest session month)
+  var activeMonth = selectedMonth || currentMonth;
 
   // Filter sessions by selected month
   var sessions = allSessions.filter(function(s) { return monthKey(s.date) === activeMonth; });
@@ -2358,10 +2361,12 @@ function ReportTab({ profile, lang, t }) {
     return h + " jam" + (m > 0 ? " " + m + " menit" : "");
   }
 
-  // Payment balance
-  var totalPrepaid = payments.reduce(function(s, p) { return s + parseInt(p.sessions_count); }, 0);
-  var allHadir = allSessions.filter(function(s) { return s.attendance === "Hadir"; }).length;
-  var saldo = totalPrepaid - allHadir;
+  // Payment balance — per selected month only
+  var prepaidThisMonth = payments
+    .filter(function(p) { return monthKey(p.topup_date) === activeMonth; })
+    .reduce(function(s, p) { return s + parseInt(p.sessions_count); }, 0);
+  var hadirThisMonth = sessions.filter(function(s) { return s.attendance === "Hadir"; }).length;
+  var saldo = prepaidThisMonth - hadirThisMonth;
   if (saldo < 0) saldo = 0;
   var saldoStatus = saldo <= 0 ? "Habis" : saldo <= 2 ? "Hampir Habis" : "Tersedia";
 
@@ -2396,14 +2401,12 @@ function ReportTab({ profile, lang, t }) {
 
       {/* ── Print-only full report ── */}
       <style>{`
-        @media print {
-          html, body { height: auto !important; overflow: visible !important; background: #fff !important; margin: 0 !important; padding: 0 !important; }
-          body * { visibility: hidden !important; }
-          .print-report, .print-report * { visibility: visible !important; }
-          .print-report { display: block !important; position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; padding: 40px !important; background: #fff !important; color: #000 !important; box-sizing: border-box !important; }
-          .print-report * { color: #000 !important; background: transparent !important; box-shadow: none !important; border-color: #ccc !important; }
-          .rangkuman-screen { display: none !important; }
-          @page { margin: 0; }
+        .print-report-page {
+          font-family: Arial, Helvetica, sans-serif;
+          color: #222;
+          background: #fff;
+          padding: 0;
+          line-height: 1.5;
         }
       `}</style>
 
@@ -2494,12 +2497,12 @@ function ReportTab({ profile, lang, t }) {
             </div>
             <div style={{ flex:1, textAlign:"center", padding:"8px", background:"var(--color-background-success)", borderRadius:"var(--border-radius-md)" }}>
               <div style={{ fontSize:10, color:"var(--color-text-success)" }}>Top-Up</div>
-              <div style={{ fontSize:20, fontWeight:700, color:"var(--color-text-success)" }}>{totalPrepaid}</div>
+              <div style={{ fontSize:20, fontWeight:700, color:"var(--color-text-success)" }}>{prepaidThisMonth}</div>
               <div style={{ fontSize:9, color:"var(--color-text-success)", opacity:0.7 }}>sesi</div>
             </div>
             <div style={{ flex:1, textAlign:"center", padding:"8px", background:"var(--color-background-warning)", borderRadius:"var(--border-radius-md)" }}>
               <div style={{ fontSize:10, color:"var(--color-text-warning)" }}>Terpakai</div>
-              <div style={{ fontSize:20, fontWeight:700, color:"var(--color-text-warning)" }}>{allHadir}</div>
+              <div style={{ fontSize:20, fontWeight:700, color:"var(--color-text-warning)" }}>{hadirThisMonth}</div>
               <div style={{ fontSize:9, color:"var(--color-text-warning)", opacity:0.7 }}>sesi</div>
             </div>
           </div>
@@ -2507,8 +2510,8 @@ function ReportTab({ profile, lang, t }) {
           {/* Per-month status */}
           <div style={{ fontSize:11, color:"var(--color-text-tertiary)", marginBottom:8 }}>
             Bulan ini: <strong>{hadir}</strong> Hadir · <strong>{izin}</strong> Izin
-            {totalPrepaid > 0 && (
-              <span> · Dibayar <strong>{payments.length > 0 ? Math.min(hadir, totalPrepaid) : 0}</strong> dari <strong>{hadir}</strong> sesi</span>
+            {prepaidThisMonth > 0 && (
+              <span> · Dibayar <strong>{payments.length > 0 ? Math.min(hadir, prepaidThisMonth) : 0}</strong> dari <strong>{hadir}</strong> sesi</span>
             )}
           </div>
 
@@ -2567,75 +2570,176 @@ function ReportTab({ profile, lang, t }) {
           )}
         </div>
 
-        {/* Print button */}
+        {/* PDF Download button */}
         <button onClick={function() {
-          var el = document.querySelector('.print-report');
-          if (!el) return;
-          var css = '@page { margin: 0; } body { margin: 40px; font-family: Arial, sans-serif; color: #000; background: #fff; font-size: 14px; } * { box-sizing: border-box; }';
-          var html = '<!DOCTYPE html><html><head><title>Krisna Music Course</title><style>' + css + '</style></head><body>' + el.outerHTML + '</body></html>';
-          var iframe = document.createElement('iframe');
-          iframe.style.position = 'absolute';
-          iframe.style.top = '-9999px';
-          iframe.style.width = '1px';
-          iframe.style.height = '1px';
-          document.body.appendChild(iframe);
-          var doc = iframe.contentWindow.document;
-          doc.open();
-          doc.write(html);
-          doc.close();
-          iframe.contentWindow.focus();
-          setTimeout(function() { iframe.contentWindow.print(); }, 300);
+          var element = document.getElementById('pdf-report-content');
+          if (!element) { alert('PDF content not found'); return; }
+          // Temporarily show for html2canvas capture
+          element.style.display = 'block';
+          element.style.position = 'absolute';
+          element.style.left = '-9999px';
+          element.style.top = '0';
+          // Dynamic import to avoid UMD compatibility issues
+          import('html2pdf.js').then(function(module) {
+            var html2pdf = module.default || module;
+            html2pdf().set({
+              margin:       8,
+              filename:     'Laporan_' + safeFileName(profile.name) + '_' + activeMonth + '.pdf',
+              image:        { type: 'jpeg', quality: 0.95 },
+              html2canvas:  { scale: 2, useCORS: true, letterRendering: true, width: 794 },
+              jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            }).from(element).save().then(function() {
+              element.style.display = 'none';
+              element.style.position = '';
+              element.style.left = '';
+              element.style.top = '';
+            }).catch(function(err) {
+              element.style.display = 'none';
+              element.style.position = '';
+              element.style.left = '';
+              element.style.top = '';
+              alert('Gagal: ' + err.message);
+            });
+          }).catch(function(err) {
+            element.style.display = 'none';
+            element.style.position = '';
+            element.style.left = '';
+            element.style.top = '';
+            alert('Gagal load html2pdf: ' + err.message);
+          });
         }}
           style={{ width:"100%", padding:"11px", background:"var(--color-background-secondary)", color:"var(--color-text-primary)", border:"1px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-lg)", fontSize:13, fontWeight:600, cursor:"pointer" }}>
-          🖨 Cetak Laporan Lengkap
+          📄 Download PDF Laporan
         </button>
       </div>
 
-      {/* ── Print-only full report ── */}
-      <div className="print-report" style={{ display:"none" }}>
-        <div style={{ borderBottom:"2px solid #222", paddingBottom:"0.5rem", marginBottom:"1rem" }}>
-          <div style={{ fontSize:20, fontWeight:700, color:"#000", marginBottom:2 }}>{profile.name}</div>
-          <div style={{ fontSize:13, color:"#555" }}>{profile.defaultInstrument || "-"} · {monthLabel(activeMonth)}</div>
-        </div>
+      {/* ── PDF content (hidden, rendered by html2pdf) ── */}
+      <div id="pdf-report-content" style={{ display:"none" }}>
+        <div className="print-report-page">
+          {/* Header */}
+          <div style={{ textAlign:"center", padding:"32px 32px 20px", borderBottom:"3px solid #1D9E75" }}>
+            <div style={{ fontSize:22, fontWeight:700, color:"#1D9E75", letterSpacing:"0.02em" }}>🎵 KRISNA MUSIC COURSE</div>
+            <div style={{ fontSize:11, color:"#888", marginTop:4 }}>Laporan Bulanan</div>
+          </div>
 
-        <div style={{ fontSize:14, fontWeight:600, marginBottom:"0.75rem" }}>Ringkasan</div>
-        <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12, marginBottom:"1rem" }}>
-          <tbody>
-            <tr><td style={{ padding:"4px 8px" }}>Total les</td><td style={{ padding:"4px 8px", fontWeight:600 }}>{totalLessons}x</td></tr>
-            <tr style={{ background:"#f5f5f5" }}><td style={{ padding:"4px 8px" }}>Hadir</td><td style={{ padding:"4px 8px", fontWeight:600 }}>{hadir}x ({attendancePct(hadir)}%)</td></tr>
-            <tr><td style={{ padding:"4px 8px" }}>Izin</td><td style={{ padding:"4px 8px", fontWeight:600 }}>{izin}x</td></tr>
-            <tr style={{ background:"#f5f5f5" }}><td style={{ padding:"4px 8px" }}>Libur</td><td style={{ padding:"4px 8px", fontWeight:600 }}>{libur}x</td></tr>
-            <tr><td style={{ padding:"4px 8px" }}>Total durasi</td><td style={{ padding:"4px 8px", fontWeight:600 }}>{formatDuration(totalDurasi)}</td></tr>
-          </tbody>
-        </table>
-
-        {topMaterials.length > 0 && (
-          <div style={{ marginBottom:"1rem" }}>
-            <div style={{ fontSize:14, fontWeight:600, marginBottom:"0.5rem" }}>Materi</div>
-            <div style={{ fontSize:12, lineHeight:1.7 }}>
-              {topMaterials.map(function(m) { return "- " + m + " (" + materiSet[m] + "x)"; }).join("\n")}
+          {/* Student info */}
+          <div style={{ display:"flex", justifyContent:"space-between", padding:"20px 32px", borderBottom:"1px solid #eee" }}>
+            <div>
+              <div style={{ fontSize:16, fontWeight:700, color:"#222" }}>{profile.name}</div>
+              <div style={{ fontSize:12, color:"#666" }}>{profile.defaultInstrument || "-"}</div>
+              <div style={{ fontSize:12, color:"#666" }}>Jadwal: {formatLessonSchedule(profile, t)}</div>
+            </div>
+            <div style={{ textAlign:"right" }}>
+              <div style={{ fontSize:14, fontWeight:700, color:"#1D9E75" }}>{monthLabel(activeMonth)}</div>
+              <div style={{ fontSize:11, color:"#888" }}>Dicetak: {formatDateLong(new Date().toISOString().split("T")[0])}</div>
             </div>
           </div>
-        )}
 
-        {sessions.length > 0 && (
-          <div>
-            <div style={{ fontSize:14, fontWeight:600, marginBottom:"0.5rem" }}>Riwayat Les ({sessions.length} pertemuan)</div>
-            {sessions.map(function(s) {
-              var attColor = s.attendance === "Hadir" ? "#1D9E75" : s.attendance === "Izin" ? "#BA7517" : s.attendance === "No-show" ? "#CC3333" : "#888";
-              return (
-                <div key={s.id} style={{ borderBottom:"1px solid #ddd", padding:"6px 0", fontSize:12 }}>
-                  <div style={{ fontWeight:600, marginBottom:2 }}>{formatDateLong(s.date)}</div>
-                  <div style={{ color:"#555" }}>
-                    {(s.materi || "-")} · {formatDuration(s.duration)} · <span style={{ color:attColor, fontWeight:600 }}>{s.attendance || "Hadir"}</span>
-                  </div>
-                  {s.notes && <div style={{ color:"#777", marginTop:1 }}>📝 {s.notes}</div>}
-                  {s.homework && <div style={{ color:"#BA7517", marginTop:1 }}>📋 PR: {s.homework}</div>}
-                </div>
-              );
-            })}
+          {/* Stats grid */}
+          <div style={{ display:"flex", gap:0, padding:"20px 32px", borderBottom:"1px solid #eee" }}>
+            <div style={{ flex:1, textAlign:"center" }}>
+              <div style={{ fontSize:10, color:"#888" }}>HADIR</div>
+              <div style={{ fontSize:24, fontWeight:700, color:"#1D9E75" }}>{hadir}</div>
+              <div style={{ fontSize:11, color:"#1D9E75" }}>{attendancePct(hadir)}%</div>
+            </div>
+            <div style={{ flex:1, textAlign:"center" }}>
+              <div style={{ fontSize:10, color:"#888" }}>IZIN</div>
+              <div style={{ fontSize:24, fontWeight:700, color:"#BA7517" }}>{izin}</div>
+              <div style={{ fontSize:11, color:"#BA7517" }}>{attendancePct(izin)}%</div>
+            </div>
+            <div style={{ flex:1, textAlign:"center" }}>
+              <div style={{ fontSize:10, color:"#888" }}>LIBUR</div>
+              <div style={{ fontSize:24, fontWeight:700, color:"#CC3333" }}>{libur}</div>
+              <div style={{ fontSize:11, color:"#CC3333" }}>{attendancePct(libur)}%</div>
+            </div>
+            <div style={{ flex:1, textAlign:"center" }}>
+              <div style={{ fontSize:10, color:"#888" }}>TOTAL LES</div>
+              <div style={{ fontSize:24, fontWeight:700, color:"#222" }}>{totalLessons}</div>
+              <div style={{ fontSize:11, color:"#888" }}>pertemuan</div>
+            </div>
           </div>
-        )}
+
+          {/* Duration + Payment */}
+          <div style={{ padding:"16px 32px", borderBottom:"1px solid #eee" }}>
+            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+              <tbody>
+                <tr>
+                  <td style={{ padding:"5px 8px", color:"#666", width:140 }}>Total Durasi</td>
+                  <td style={{ padding:"5px 8px", fontWeight:600, color:"#222" }}>{formatDuration(totalDurasi)}</td>
+                </tr>
+                <tr>
+                  <td style={{ padding:"5px 8px", color:"#666" }}>Rata-rata per sesi</td>
+                  <td style={{ padding:"5px 8px", fontWeight:600, color:"#222" }}>{totalLessons > 0 ? formatDuration(totalDurasi / totalLessons) : "0 menit"}</td>
+                </tr>
+                <tr>
+                  <td style={{ padding:"5px 8px", color:"#666" }}>Top-Up bulan ini</td>
+                  <td style={{ padding:"5px 8px", fontWeight:600, color:"#222" }}>{prepaidThisMonth} sesi</td>
+                </tr>
+                <tr>
+                  <td style={{ padding:"5px 8px", color:"#666" }}>Terpakai</td>
+                  <td style={{ padding:"5px 8px", fontWeight:600, color:"#222" }}>{hadirThisMonth} sesi</td>
+                </tr>
+                <tr>
+                  <td style={{ padding:"5px 8px", color:"#666" }}>Sisa Saldo</td>
+                  <td style={{ padding:"5px 8px", fontWeight:600, color: saldo <= 0 ? "#CC3333" : "#1D9E75" }}>{saldo} sesi ({saldoStatus})</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Materials */}
+          {topMaterials.length > 0 && (
+            <div style={{ padding:"16px 32px", borderBottom:"1px solid #eee" }}>
+              <div style={{ fontSize:12, fontWeight:600, color:"#222", marginBottom:8 }}>📚 Materi yang Diajarkan</div>
+              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:11 }}>
+                <thead>
+                  <tr style={{ background:"#f5f5f5" }}>
+                    <th style={{ padding:"5px 8px", textAlign:"left", color:"#666", fontWeight:600 }}>Materi</th>
+                    <th style={{ padding:"5px 8px", textAlign:"right", color:"#666", fontWeight:600, width:60 }}>Jumlah</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topMaterials.map(function(m, i) {
+                    return (
+                      <tr key={m} style={{ borderBottom:"1px solid #f0f0f0" }}>
+                        <td style={{ padding:"4px 8px", color:"#222" }}>{m}</td>
+                        <td style={{ padding:"4px 8px", textAlign:"right", color:"#1D9E75", fontWeight:600 }}>×{materiSet[m]}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Sessions log */}
+          {sessions.length > 0 && (
+            <div style={{ padding:"16px 32px 32px" }}>
+              <div style={{ fontSize:12, fontWeight:600, color:"#222", marginBottom:8 }}>📋 Riwayat Pertemuan</div>
+              {sessions.map(function(s, i) {
+                var attColor = s.attendance === "Hadir" ? "#1D9E75" : s.attendance === "Izin" ? "#BA7517" : s.attendance === "No-show" ? "#CC3333" : "#888";
+                return (
+                  <div key={s.id || i} style={{ borderBottom:"1px dashed #e0e0e0", padding:"7px 0" }}>
+                    <div style={{ display:"flex", justifyContent:"space-between" }}>
+                      <span style={{ fontSize:11, fontWeight:600, color:"#222" }}>{formatDateLong(s.date)}</span>
+                      <span style={{ fontSize:11, color:attColor, fontWeight:600 }}>{s.attendance || "Hadir"}</span>
+                    </div>
+                    <div style={{ fontSize:10, color:"#666", marginTop:2 }}>
+                      {(s.materi || "-")} · {formatDuration(s.duration)}
+                    </div>
+                    {s.notes && <div style={{ fontSize:10, color:"#888", marginTop:1, fontStyle:"italic" }}>📝 {s.notes}</div>}
+                    {s.homework && <div style={{ fontSize:10, color:"#BA7517", marginTop:1 }}>📋 PR: {s.homework}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Footer */}
+          <div style={{ textAlign:"center", padding:"12px 32px", borderTop:"1px solid #ddd", fontSize:10, color:"#aaa" }}>
+            Krisna Music Course · Laporan dibuat otomatis · {monthLabel(activeMonth)}
+          </div>
+        </div>
       </div>
 
     </div>
