@@ -2571,31 +2571,211 @@ function ReportTab({ profile, lang, t }) {
         </div>
 
         {/* PDF Download button */}
-        <button onClick={function(event) {
-          var source = document.getElementById('pdf-report-content');
-          if (!source) { alert('PDF content not found'); return; }
-          // Clone and remove hidden styles so it renders in the iframe
-          var element = source.cloneNode(true);
-          element.style.display = 'block';
-          element.style.position = 'static';
-          element.style.left = '';
-          element.style.top = '';
-          element.style.width = '100%';
-          // inline all CSS and make it visible for print
-          var css = '@page { margin: 10mm; } body { margin: 0; padding: 20px; font-family: Arial, Helvetica, sans-serif; color: #222; background: #fff; line-height: 1.5; } .print-report-page { font-family: Arial, Helvetica, sans-serif; color: #222; background: #fff; padding: 0; line-height: 1.5; }';
-          var html = '<!DOCTYPE html><html><head><title>Laporan ' + profile.name + '</title><style>' + css + '</style></head><body>' + element.outerHTML + '</body></html>';
-          var iframe = document.createElement('iframe');
-          iframe.style.position = 'fixed';
-          iframe.style.top = '-9999px';
-          iframe.style.width = '1px';
-          iframe.style.height = '1px';
-          document.body.appendChild(iframe);
-          var doc = iframe.contentWindow.document;
-          doc.open();
-          doc.write(html);
-          doc.close();
-          // Trigger print after rendering
-          setTimeout(function() { iframe.contentWindow.focus(); iframe.contentWindow.print(); }, 300);
+        <button onClick={async function() {
+          import('jspdf').then(function(jspdfModule) {
+            var jsPDF = jspdfModule.default;
+            var doc = new jsPDF('p', 'mm', 'a4');
+            var pageW = 210;
+            var margin = 20;
+            var contentW = pageW - margin * 2;
+            var y = margin;
+            var lineH = 5;
+            var pageH = 297;
+
+            function addPage() {
+              doc.addPage();
+              y = margin;
+            }
+
+            function checkPage(h) {
+              if (y + h > pageH - margin) { addPage(); return true; }
+              return false;
+            }
+
+            // ── HEADER ──
+            doc.setFontSize(18);
+            doc.setTextColor(29, 158, 117);
+            doc.text('KRISNA MUSIC COURSE', pageW / 2, y, { align: 'center' });
+            y += 7;
+            doc.setFontSize(10);
+            doc.setTextColor(136, 136, 136);
+            doc.text('Laporan Bulanan', pageW / 2, y, { align: 'center' });
+            y += 3;
+            doc.setDrawColor(29, 158, 117);
+            doc.setLineWidth(1);
+            doc.line(margin, y, pageW - margin, y);
+            y += 8;
+
+            // ── STUDENT INFO ──
+            doc.setFontSize(14);
+            doc.setTextColor(34, 34, 34);
+            doc.setFont(undefined, 'bold');
+            doc.text(profile.name, margin, y);
+            doc.setFont(undefined, 'normal');
+            y += 6;
+            doc.setFontSize(10);
+            doc.setTextColor(102, 102, 102);
+            doc.text((profile.defaultInstrument || '-') + ' | Jadwal: ' + formatLessonSchedule(profile, t), margin, y);
+            y += 6;
+            doc.setTextColor(29, 158, 117);
+            doc.setFont(undefined, 'bold');
+            doc.text(monthLabel(activeMonth), margin, y);
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(136, 136, 136);
+            doc.text('Dicetak: ' + formatDateLong(new Date().toISOString().split('T')[0]), pageW - margin, y, { align: 'right' });
+            y += 4;
+            doc.setDrawColor(200, 200, 200);
+            doc.setLineWidth(0.3);
+            doc.line(margin, y, pageW - margin, y);
+            y += 8;
+
+            // ── STATS GRID ──
+            checkPage(30);
+            var stats = [
+              { label: 'HADIR', value: String(hadir), pct: attendancePct(hadir) + '%', color: [29, 158, 117] },
+              { label: 'IZIN', value: String(izin), pct: attendancePct(izin) + '%', color: [186, 117, 23] },
+              { label: 'LIBUR', value: String(libur), pct: attendancePct(libur) + '%', color: [204, 51, 51] },
+              { label: 'TOTAL', value: String(totalLessons), pct: 'pertemuan', color: [34, 34, 34] },
+            ];
+            var cellW = contentW / 4;
+            stats.forEach(function(s, i) {
+              var cx = margin + cellW * i + cellW / 2;
+              doc.setTextColor(136, 136, 136);
+              doc.setFontSize(8);
+              doc.text(s.label, cx, y, { align: 'center' });
+              doc.setTextColor(s.color[0], s.color[1], s.color[2]);
+              doc.setFontSize(20);
+              doc.setFont(undefined, 'bold');
+              doc.text(s.value, cx, y + 11, { align: 'center' });
+              doc.setFont(undefined, 'normal');
+              doc.setFontSize(9);
+              doc.setTextColor(s.color[0], s.color[1], s.color[2]);
+              doc.text(s.pct, cx, y + 18, { align: 'center' });
+            });
+            y += 26;
+            doc.setDrawColor(200, 200, 200);
+            doc.line(margin, y, pageW - margin, y);
+            y += 6;
+
+            // ── DETAIL TABLE ──
+            checkPage(40);
+            var details = [
+              ['Total Durasi', formatDuration(totalDurasi)],
+              ['Rata-rata per sesi', totalLessons > 0 ? formatDuration(totalDurasi / totalLessons) : '0 menit'],
+              ['Top-Up bulan ini', prepaidThisMonth + ' sesi'],
+              ['Terpakai', hadirThisMonth + ' sesi'],
+              ['Sisa Saldo', saldo + ' sesi  (' + saldoStatus + ')'],
+            ];
+            doc.setFontSize(10);
+            details.forEach(function(row, i) {
+              var labelColor = i === 4 ? (saldo <= 0 ? [204, 51, 51] : [29, 158, 117]) : [102, 102, 102];
+              var valColor = i === 4 ? (saldo <= 0 ? [204, 51, 51] : [29, 158, 117]) : [34, 34, 34];
+              doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
+              doc.text(row[0], margin + 4, y);
+              doc.setFont(undefined, 'bold');
+              doc.setTextColor(valColor[0], valColor[1], valColor[2]);
+              doc.text(row[1], pageW - margin - 4, y, { align: 'right' });
+              doc.setFont(undefined, 'normal');
+              y += 6;
+            });
+            doc.setDrawColor(200, 200, 200);
+            doc.line(margin, y, pageW - margin, y);
+            y += 6;
+
+            // ── MATERIALS ──
+            if (topMaterials.length > 0) {
+              checkPage(topMaterials.length * 5 + 20);
+              doc.setFontSize(11);
+              doc.setTextColor(34, 34, 34);
+              doc.setFont(undefined, 'bold');
+              doc.text('Materi yang Diajarkan', margin, y);
+              doc.setFont(undefined, 'normal');
+              y += 7;
+              doc.setFillColor(245, 245, 245);
+              doc.rect(margin, y - 4, contentW, 5, 'F');
+              doc.setFontSize(9);
+              doc.setTextColor(102, 102, 102);
+              doc.text('Materi', margin + 4, y);
+              doc.text('Jumlah', pageW - margin - 4, y, { align: 'right' });
+              y += 5;
+              topMaterials.forEach(function(m) {
+                checkPage(6);
+                doc.setFontSize(9);
+                doc.setTextColor(34, 34, 34);
+                doc.text(m, margin + 4, y);
+                doc.setTextColor(29, 158, 117);
+                doc.setFont(undefined, 'bold');
+                doc.text('\u00D7' + materiSet[m], pageW - margin - 4, y, { align: 'right' });
+                doc.setFont(undefined, 'normal');
+                y += 5;
+              });
+              y += 4;
+              doc.setDrawColor(200, 200, 200);
+              doc.line(margin, y, pageW - margin, y);
+              y += 6;
+            }
+
+            // ── SESSION HISTORY ──
+            if (sessions.length > 0) {
+              checkPage(sessions.length * 10 + 15);
+              doc.setFontSize(11);
+              doc.setTextColor(34, 34, 34);
+              doc.setFont(undefined, 'bold');
+              doc.text('Riwayat Pertemuan', margin, y);
+              doc.setFont(undefined, 'normal');
+              y += 7;
+              sessions.forEach(function(s) {
+                checkPage(12);
+                var attColor = s.attendance === 'Hadir' ? [29, 158, 117] : s.attendance === 'Izin' ? [186, 117, 23] : [204, 51, 51];
+                doc.setFontSize(9);
+                doc.setTextColor(34, 34, 34);
+                doc.setFont(undefined, 'bold');
+                doc.text(formatDateLong(s.date), margin + 2, y);
+                doc.setTextColor(attColor[0], attColor[1], attColor[2]);
+                doc.text(s.attendance || 'Hadir', pageW - margin - 2, y, { align: 'right' });
+                doc.setFont(undefined, 'normal');
+                y += 5;
+                doc.setFontSize(8);
+                doc.setTextColor(102, 102, 102);
+                doc.text((s.materi || '-') + ' · ' + formatDuration(s.duration), margin + 4, y);
+                y += 4;
+                if (s.notes) {
+                  checkPage(5);
+                  doc.setTextColor(136, 136, 136);
+                  doc.setFont(undefined, 'italic');
+                  doc.text('Catatan: ' + s.notes, margin + 6, y);
+                  doc.setFont(undefined, 'normal');
+                  y += 4;
+                }
+                if (s.homework) {
+                  checkPage(5);
+                  doc.setTextColor(186, 117, 23);
+                  doc.text('PR: ' + s.homework, margin + 6, y);
+                  y += 4;
+                }
+                doc.setDrawColor(220, 220, 220);
+                doc.setLineWidth(0.2);
+                doc.line(margin + 2, y, pageW - margin - 2, y);
+                y += 3;
+              });
+            }
+
+            // ── FOOTER ──
+            checkPage(15);
+            doc.setDrawColor(200, 200, 200);
+            doc.line(margin, y, pageW - margin, y);
+            y += 5;
+            doc.setFontSize(8);
+            doc.setTextColor(170, 170, 170);
+            doc.text('Krisna Music Course  ·  Laporan dibuat otomatis  ·  ' + monthLabel(activeMonth), pageW / 2, y, { align: 'center' });
+
+            // Save
+            var fileName = 'Laporan_' + safeFileName(profile.name) + '_' + activeMonth + '.pdf';
+            doc.save(fileName);
+          }).catch(function(err) {
+            alert('Gagal generate PDF: ' + err.message);
+            console.error(err);
+          });
         }}
           style={{ width:"100%", padding:"11px", background:"var(--color-background-secondary)", color:"var(--color-text-primary)", border:"1px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-lg)", fontSize:13, fontWeight:600, cursor:"pointer" }}>
           📄 Download PDF Laporan
