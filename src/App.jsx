@@ -2571,42 +2571,24 @@ function ReportTab({ profile, lang, t }) {
         </div>
 
         {/* PDF Download button */}
-        <button onClick={function() {
-          var element = document.getElementById('pdf-report-content');
+        <button onClick={function(event) {
+          var element = document.getElementById('pdf-report-content').cloneNode(true);
           if (!element) { alert('PDF content not found'); return; }
-          // Temporarily show for html2canvas capture
-          element.style.display = 'block';
-          element.style.position = 'absolute';
-          element.style.left = '-9999px';
-          element.style.top = '0';
-          // Dynamic import to avoid UMD compatibility issues
-          import('html2pdf.js').then(function(module) {
-            var html2pdf = module.default || module;
-            html2pdf().set({
-              margin:       8,
-              filename:     'Laporan_' + safeFileName(profile.name) + '_' + activeMonth + '.pdf',
-              image:        { type: 'jpeg', quality: 0.95 },
-              html2canvas:  { scale: 2, useCORS: true, letterRendering: true, width: 794 },
-              jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            }).from(element).save().then(function() {
-              element.style.display = 'none';
-              element.style.position = '';
-              element.style.left = '';
-              element.style.top = '';
-            }).catch(function(err) {
-              element.style.display = 'none';
-              element.style.position = '';
-              element.style.left = '';
-              element.style.top = '';
-              alert('Gagal: ' + err.message);
-            });
-          }).catch(function(err) {
-            element.style.display = 'none';
-            element.style.position = '';
-            element.style.left = '';
-            element.style.top = '';
-            alert('Gagal load html2pdf: ' + err.message);
-          });
+          // inline all CSS and make it visible for print
+          var css = '@page { margin: 10mm; } body { margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; color: #222; background: #fff; line-height: 1.5; } .print-report-page { font-family: Arial, Helvetica, sans-serif; color: #222; background: #fff; padding: 0; line-height: 1.5; }';
+          var html = '<!DOCTYPE html><html><head><title>Laporan ' + profile.name + '</title><style>' + css + '</style></head><body onload="window.print()">' + element.outerHTML + '</body></html>';
+          var iframe = document.createElement('iframe');
+          iframe.style.position = 'fixed';
+          iframe.style.top = '-9999px';
+          iframe.style.width = '1px';
+          iframe.style.height = '1px';
+          document.body.appendChild(iframe);
+          var doc = iframe.contentWindow.document;
+          doc.open();
+          doc.write(html);
+          doc.close();
+          iframe.contentWindow.focus();
+          setTimeout(function() { iframe.contentWindow.print(); }, 500);
         }}
           style={{ width:"100%", padding:"11px", background:"var(--color-background-secondary)", color:"var(--color-text-primary)", border:"1px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-lg)", fontSize:13, fontWeight:600, cursor:"pointer" }}>
           📄 Download PDF Laporan
