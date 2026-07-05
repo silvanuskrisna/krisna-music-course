@@ -2572,11 +2572,18 @@ function ReportTab({ profile, lang, t }) {
 
         {/* PDF Download button */}
         <button onClick={function(event) {
-          var element = document.getElementById('pdf-report-content').cloneNode(true);
-          if (!element) { alert('PDF content not found'); return; }
+          var source = document.getElementById('pdf-report-content');
+          if (!source) { alert('PDF content not found'); return; }
+          // Clone and remove hidden styles so it renders in the iframe
+          var element = source.cloneNode(true);
+          element.style.display = 'block';
+          element.style.position = 'static';
+          element.style.left = '';
+          element.style.top = '';
+          element.style.width = '100%';
           // inline all CSS and make it visible for print
-          var css = '@page { margin: 10mm; } body { margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; color: #222; background: #fff; line-height: 1.5; } .print-report-page { font-family: Arial, Helvetica, sans-serif; color: #222; background: #fff; padding: 0; line-height: 1.5; }';
-          var html = '<!DOCTYPE html><html><head><title>Laporan ' + profile.name + '</title><style>' + css + '</style></head><body onload="window.print()">' + element.outerHTML + '</body></html>';
+          var css = '@page { margin: 10mm; } body { margin: 0; padding: 20px; font-family: Arial, Helvetica, sans-serif; color: #222; background: #fff; line-height: 1.5; } .print-report-page { font-family: Arial, Helvetica, sans-serif; color: #222; background: #fff; padding: 0; line-height: 1.5; }';
+          var html = '<!DOCTYPE html><html><head><title>Laporan ' + profile.name + '</title><style>' + css + '</style></head><body>' + element.outerHTML + '</body></html>';
           var iframe = document.createElement('iframe');
           iframe.style.position = 'fixed';
           iframe.style.top = '-9999px';
@@ -2587,8 +2594,8 @@ function ReportTab({ profile, lang, t }) {
           doc.open();
           doc.write(html);
           doc.close();
-          iframe.contentWindow.focus();
-          setTimeout(function() { iframe.contentWindow.print(); }, 500);
+          // Trigger print after rendering
+          setTimeout(function() { iframe.contentWindow.focus(); iframe.contentWindow.print(); }, 300);
         }}
           style={{ width:"100%", padding:"11px", background:"var(--color-background-secondary)", color:"var(--color-text-primary)", border:"1px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-lg)", fontSize:13, fontWeight:600, cursor:"pointer" }}>
           📄 Download PDF Laporan
