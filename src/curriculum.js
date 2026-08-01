@@ -37,15 +37,15 @@ export const CURRICULUM = {
               "sub": [
                 {
                   "id": "td-02-a",
-                  "nama": "Legato 1 jari"
+                  "nama": "Legato 2 jari (C-D pake jari 1-2)"
                 },
                 {
                   "id": "td-02-b",
-                  "nama": "Legato 2-3 jari"
+                  "nama": "Legato 5 jari (C-D-E-F-G naik & turun)"
                 },
                 {
                   "id": "td-02-c",
-                  "nama": "Staccato dasar (angkat jari)"
+                  "nama": "Staccato 5 jari (wrist staccato)"
                 },
                 {
                   "id": "td-02-d",
