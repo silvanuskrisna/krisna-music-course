@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { isSupabaseConfigured, supabase } from "./supabaseClient";
+import { CURRICULUM } from "./curriculum";
+import ProgressTab from "./ProgressTab";
 
 const THEME_KEY = "mpt_theme";
 const DRAFT_PREFIX = "mpt_draft_";
@@ -45,7 +47,7 @@ const KAT_COLORS = {
   "Teori":        { bg:"var(--color-background-warning)", text:"var(--color-text-warning)", bar:"#BA7517" },
 };
 
-const TABS = ["teach","practice","report"];
+const TABS = ["teach","progress","report"];
 
 const STRINGS = {
   id: {
@@ -67,7 +69,7 @@ const STRINGS = {
     cancel: "Batal",
     addStudent: "+ Tambah murid",
     back: "Kembali",
-    tabs: { teach:"Sesi", practice:"Materi", report:"Laporan" },
+    tabs: { teach:"Sesi", progress:"Progress", report:"Laporan" },
     chooseInstrument: "Pilih instrumen dulu.",
     practiceMaterial: "Materi latihan",
     songTitle: "Judul lagu",
@@ -180,7 +182,7 @@ const STRINGS = {
     cancel: "Cancel",
     addStudent: "+ Add student",
     back: "Back",
-    tabs: { teach:"Session", practice:"Material", report:"Report" },
+    tabs: { teach:"Session", progress:"Progress", report:"Report" },
     chooseInstrument: "Choose an instrument first.",
     practiceMaterial: "Practice material",
     songTitle: "Song title",
@@ -1226,9 +1228,12 @@ function TrackerScreen({ profile, updateProfile, onBack, syncStatus, theme, onTo
         <TeachTab profile={profile} updateProfile={updateProfile} onSaveSession={function() {}} t={t} lang={lang} />
       </div>
       <div style={{ display:tab === 1 ? "block" : "none" }} aria-hidden={tab !== 1}>
-        <TimerTab profile={profile} updateProfile={updateProfile} onSaveSession={function() {}} t={t} />
+        <ProgressTab profile={profile} lang={lang} t={t} />
       </div>
       <div style={{ display:tab === 2 ? "block" : "none" }} aria-hidden={tab !== 2}>
+        <ProgressTab profile={profile} lang={lang} t={t} />
+      </div>
+      <div style={{ display:tab === 3 ? "block" : "none" }} aria-hidden={tab !== 3}>
         <ReportTab profile={profile} lang={lang} t={t} />
       </div>
     </div>
