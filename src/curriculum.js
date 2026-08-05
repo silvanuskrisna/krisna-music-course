@@ -37,7 +37,7 @@ export const CURRICULUM = {
               "sub": [
                 {
                   "id": "td-02-a",
-                  "nama": "Legato 2 jari (C-D pake jari 1-2)"
+                  "nama": "Legato 2 jari (C-D menggunakan jari 1-2)"
                 },
                 {
                   "id": "td-02-b",
@@ -59,19 +59,19 @@ export const CURRICULUM = {
               "sub": [
                 {
                   "id": "td-03-a",
-                  "nama": "RH doang (C position)"
+                  "nama": "Right Hand saja (C position)"
                 },
                 {
                   "id": "td-03-b",
-                  "nama": "LH doang (C position)"
+                  "nama": "Left Hand saja (C position)"
                 },
                 {
                   "id": "td-03-c",
-                  "nama": "RH + LH bergantian"
+                  "nama": "Right Hand + Left Hand bergantian"
                 },
                 {
                   "id": "td-03-d",
-                  "nama": "RH + LH bersamaan (sederhana)"
+                  "nama": "Right Hand + Left Hand bersamaan (sederhana)"
                 }
               ]
             }
@@ -90,15 +90,15 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "td-04-b",
-                  "nama": "Hanon no. 1 (RH)"
+                  "nama": "Hanon no. 1 (Right Hand)"
                 },
                 {
                   "id": "td-04-c",
-                  "nama": "Hanon no. 1 (LH)"
+                  "nama": "Hanon no. 1 (Left Hand)"
                 },
                 {
                   "id": "td-04-d",
-                  "nama": "Hanon no. 1 (RH + LH)"
+                  "nama": "Hanon no. 1 (Right Hand + Left Hand)"
                 }
               ]
             },
@@ -116,7 +116,7 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "td-05-c",
-                  "nama": "Main tangga nada dengan dinamika"
+                  "nama": "Memainkan tangga nada dengan dinamika"
                 },
                 {
                   "id": "td-05-d",
@@ -157,11 +157,11 @@ export const CURRICULUM = {
               "sub": [
                 {
                   "id": "td-07-a",
-                  "nama": "Oktav RH"
+                  "nama": "Oktav - Right Hand"
                 },
                 {
                   "id": "td-07-b",
-                  "nama": "Oktav LH"
+                  "nama": "Oktav - Left Hand"
                 },
                 {
                   "id": "td-07-c",
@@ -196,7 +196,7 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "td-08-d",
-                  "nama": "Pake di lagu"
+                  "nama": "Gunakan di lagu"
                 }
               ]
             },
@@ -210,7 +210,7 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "td-09-b",
-                  "nama": "LH vs RH balance"
+                  "nama": "Left Hand vs Right Hand balance"
                 },
                 {
                   "id": "td-09-c",
@@ -218,7 +218,7 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "td-09-d",
-                  "nama": "Main dengan ekspresi"
+                  "nama": "Memainkan dengan ekspresi"
                 }
               ]
             }
@@ -291,15 +291,15 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "sc-01-b",
-                  "nama": "RH 1 oktaf naik & turun"
+                  "nama": "Right Hand 1 oktaf naik & turun"
                 },
                 {
                   "id": "sc-01-c",
-                  "nama": "LH 1 oktaf naik & turun"
+                  "nama": "Left Hand 1 oktaf naik & turun"
                 },
                 {
                   "id": "sc-01-d",
-                  "nama": "RH + LH bersama"
+                  "nama": "Right Hand + Left Hand bersama"
                 }
               ]
             },
@@ -313,15 +313,15 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "sc-02-b",
-                  "nama": "RH 1 oktaf"
+                  "nama": "Right Hand 1 oktaf"
                 },
                 {
                   "id": "sc-02-c",
-                  "nama": "LH 1 oktaf"
+                  "nama": "Left Hand 1 oktaf"
                 },
                 {
                   "id": "sc-02-d",
-                  "nama": "RH + LH bersama"
+                  "nama": "Right Hand + Left Hand bersama"
                 }
               ]
             },
@@ -335,15 +335,15 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "sc-03-b",
-                  "nama": "RH 1 oktaf"
+                  "nama": "Right Hand 1 oktaf"
                 },
                 {
                   "id": "sc-03-c",
-                  "nama": "LH 1 oktaf"
+                  "nama": "Left Hand 1 oktaf"
                 },
                 {
                   "id": "sc-03-d",
-                  "nama": "RH + LH bersama"
+                  "nama": "Right Hand + Left Hand bersama"
                 }
               ]
             }
@@ -358,15 +358,15 @@ export const CURRICULUM = {
               "sub": [
                 {
                   "id": "sc-04-a",
-                  "nama": "RH 1 oktaf"
+                  "nama": "Right Hand 1 oktaf"
                 },
                 {
                   "id": "sc-04-b",
-                  "nama": "LH 1 oktaf"
+                  "nama": "Left Hand 1 oktaf"
                 },
                 {
                   "id": "sc-04-c",
-                  "nama": "RH + LH bersama"
+                  "nama": "Right Hand + Left Hand bersama"
                 }
               ]
             },
@@ -376,15 +376,15 @@ export const CURRICULUM = {
               "sub": [
                 {
                   "id": "sc-05-a",
-                  "nama": "RH 1 oktaf"
+                  "nama": "Right Hand 1 oktaf"
                 },
                 {
                   "id": "sc-05-b",
-                  "nama": "LH 1 oktaf"
+                  "nama": "Left Hand 1 oktaf"
                 },
                 {
                   "id": "sc-05-c",
-                  "nama": "RH + LH bersama"
+                  "nama": "Right Hand + Left Hand bersama"
                 }
               ]
             },
@@ -398,15 +398,15 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "sc-06-b",
-                  "nama": "RH 1 oktaf (thumb under)"
+                  "nama": "Right Hand 1 oktaf (thumb under)"
                 },
                 {
                   "id": "sc-06-c",
-                  "nama": "LH 1 oktaf"
+                  "nama": "Left Hand 1 oktaf"
                 },
                 {
                   "id": "sc-06-d",
-                  "nama": "RH + LH bersama"
+                  "nama": "Right Hand + Left Hand bersama"
                 }
               ]
             }
@@ -421,15 +421,15 @@ export const CURRICULUM = {
               "sub": [
                 {
                   "id": "sc-07-a",
-                  "nama": "RH 2 oktaf"
+                  "nama": "Right Hand 2 oktaf"
                 },
                 {
                   "id": "sc-07-b",
-                  "nama": "LH 2 oktaf"
+                  "nama": "Left Hand 2 oktaf"
                 },
                 {
                   "id": "sc-07-c",
-                  "nama": "RH + LH bersama 2 oktaf"
+                  "nama": "Right Hand + Left Hand bersama 2 oktaf"
                 },
                 {
                   "id": "sc-07-d",
@@ -443,11 +443,11 @@ export const CURRICULUM = {
               "sub": [
                 {
                   "id": "sc-08-a",
-                  "nama": "Harmonic: RH+LH"
+                  "nama": "Harmonic: Right Hand + Left Hand"
                 },
                 {
                   "id": "sc-08-b",
-                  "nama": "Melodic: RH+LH"
+                  "nama": "Melodic: Right Hand + Left Hand"
                 },
                 {
                   "id": "sc-08-c",
@@ -461,19 +461,19 @@ export const CURRICULUM = {
               "sub": [
                 {
                   "id": "sc-09-a",
-                  "nama": "C major (RH)"
+                  "nama": "C major (Right Hand)"
                 },
                 {
                   "id": "sc-09-b",
-                  "nama": "G major (LH)"
+                  "nama": "G major (Left Hand)"
                 },
                 {
                   "id": "sc-09-c",
-                  "nama": "F major (RH+LH)"
+                  "nama": "F major (Right Hand + Left Hand)"
                 },
                 {
                   "id": "sc-09-d",
-                  "nama": "RH+LH bersama 2 oktaf"
+                  "nama": "Right Hand + Left Hand bersama 2 oktaf"
                 }
               ]
             }
@@ -492,15 +492,15 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "sc-10-b",
-                  "nama": "RH 2 oktaf"
+                  "nama": "Right Hand 2 oktaf"
                 },
                 {
                   "id": "sc-10-c",
-                  "nama": "LH 2 oktaf"
+                  "nama": "Left Hand 2 oktaf"
                 },
                 {
                   "id": "sc-10-d",
-                  "nama": "RH+LH parallel 2 oktaf"
+                  "nama": "Right Hand + Left Hand parallel 2 oktaf"
                 }
               ]
             },
@@ -532,11 +532,11 @@ export const CURRICULUM = {
               "sub": [
                 {
                   "id": "sc-12-a",
-                  "nama": "Harmonic: RH+LH"
+                  "nama": "Harmonic: Right Hand + Left Hand"
                 },
                 {
                   "id": "sc-12-b",
-                  "nama": "Melodic: RH+LH"
+                  "nama": "Melodic: Right Hand + Left Hand"
                 },
                 {
                   "id": "sc-12-c",
@@ -555,15 +555,15 @@ export const CURRICULUM = {
               "sub": [
                 {
                   "id": "sc-13-a",
-                  "nama": "RH parallel"
+                  "nama": "Right Hand parallel"
                 },
                 {
                   "id": "sc-13-b",
-                  "nama": "LH parallel"
+                  "nama": "Left Hand parallel"
                 },
                 {
                   "id": "sc-13-c",
-                  "nama": "RH+LH 3rd apart"
+                  "nama": "Right Hand + Left Hand 3rd apart"
                 },
                 {
                   "id": "sc-13-d",
@@ -639,17 +639,17 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "sr-01-c",
-                  "nama": "Baca RH: C-D-E-F-G"
+                  "nama": "Baca Right Hand: C-D-E-F-G"
                 },
                 {
                   "id": "sr-01-d",
-                  "nama": "Baca LH: C-B-A-G-F"
+                  "nama": "Baca Left Hand: C-B-A-G-F"
                 }
               ]
             },
             {
               "id": "sr-02",
-              "nama": "Rhythm dasar",
+              "nama": "Rhythm Dasar",
               "sub": [
                 {
                   "id": "sr-02-a",
@@ -665,7 +665,7 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "sr-02-d",
-                  "nama": "Main di piano 1 not"
+                  "nama": "Memainkan di piano 1 not"
                 }
               ]
             },
@@ -683,7 +683,7 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "sr-03-c",
-                  "nama": "Dengar & bedain step vs skip"
+                  "nama": "Dengar & bedakan step vs skip"
                 }
               ]
             }
@@ -710,13 +710,13 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "sr-04-d",
-                  "nama": "Baca RH + LH bersama"
+                  "nama": "Baca Right Hand + Left Hand bersama"
                 }
               ]
             },
             {
               "id": "sr-05",
-              "nama": "Rhythm level 2",
+              "nama": "Rhythm Level 2",
               "sub": [
                 {
                   "id": "sr-05-a",
@@ -732,7 +732,7 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "sr-05-d",
-                  "nama": "Main di piano"
+                  "nama": "Memainkan di piano"
                 }
               ]
             },
@@ -803,7 +803,7 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "sr-08-d",
-                  "nama": "Main di piano"
+                  "nama": "Memainkan di piano"
                 }
               ]
             },
@@ -899,7 +899,7 @@ export const CURRICULUM = {
           "items": [
             {
               "id": "sr-13",
-              "nama": "Complex rhythms",
+              "nama": "Complex Rhythms",
               "sub": [
                 {
                   "id": "sr-13-a",
@@ -1005,7 +1005,7 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "th-02-d",
-                  "nama": "Main broken chord"
+                  "nama": "Memainkan broken chord"
                 }
               ]
             },
@@ -1019,15 +1019,15 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "th-03-b",
-                  "nama": "Play progresi di RH"
+                  "nama": "Play progresi di Right Hand"
                 },
                 {
                   "id": "th-03-c",
-                  "nama": "Add LH root note"
+                  "nama": "Add Left Hand root note"
                 },
                 {
                   "id": "th-03-d",
-                  "nama": "Main hands together"
+                  "nama": "Memainkan hands together"
                 }
               ]
             }
@@ -1054,7 +1054,7 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "th-04-d",
-                  "nama": "Main di keyboard & bedain"
+                  "nama": "Memainkan di keyboard & bedakan"
                 }
               ]
             },
@@ -1076,7 +1076,7 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "th-05-d",
-                  "nama": "Main I-IV-V di C, G, D, F"
+                  "nama": "Memainkan I-IV-V di C, G, D, F"
                 },
                 {
                   "id": "th-05-e",
@@ -1102,7 +1102,7 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "th-06-d",
-                  "nama": "Main broken chord"
+                  "nama": "Memainkan broken chord"
                 }
               ]
             },
@@ -1116,15 +1116,15 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "th-07-b",
-                  "nama": "Play di RH"
+                  "nama": "Play di Right Hand"
                 },
                 {
                   "id": "th-07-c",
-                  "nama": "Add LH root note"
+                  "nama": "Add Left Hand root note"
                 },
                 {
                   "id": "th-07-d",
-                  "nama": "Main hands together"
+                  "nama": "Memainkan hands together"
                 }
               ]
             }
@@ -1147,11 +1147,11 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "th-08-c",
-                  "nama": "Main di semua triad"
+                  "nama": "Memainkan di semua triad"
                 },
                 {
                   "id": "th-08-d",
-                  "nama": "Pake di lagu"
+                  "nama": "Gunakan di lagu"
                 }
               ]
             },
@@ -1173,7 +1173,7 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "th-09-d",
-                  "nama": "Dengerin & bedain"
+                  "nama": "Dengerin & bedakan"
                 }
               ]
             },
@@ -1309,7 +1309,7 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "th-16-c",
-                  "nama": "Main komposisi sendiri"
+                  "nama": "Memainkan komposisi sendiri"
                 }
               ]
             }
