@@ -1231,9 +1231,6 @@ function TrackerScreen({ profile, updateProfile, onBack, syncStatus, theme, onTo
         <ProgressTab profile={profile} lang={lang} t={t} />
       </div>
       <div style={{ display:tab === 2 ? "block" : "none" }} aria-hidden={tab !== 2}>
-        <ProgressTab profile={profile} lang={lang} t={t} />
-      </div>
-      <div style={{ display:tab === 3 ? "block" : "none" }} aria-hidden={tab !== 3}>
         <ReportTab profile={profile} lang={lang} t={t} />
       </div>
     </div>
