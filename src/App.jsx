@@ -476,18 +476,17 @@ function averageScore(scores) {
 }
 
 function getTodayLessonProfiles(profiles) {
-  console.log("AgendaProfiles:", profiles ? profiles.length : "null/undefined", "profiles");
+  //
   const today = new Date().toLocaleDateString("id-ID", { weekday:"long" });
   const normalizedToday = today.charAt(0).toUpperCase() + today.slice(1);
   const todayDate = todayStr();
   return profiles
-    .filter(function(profile) {
-      const hasTodaySession = profile.sessions.some(function(s) { return s.date === todayDate; });
-      console.log("AgendaFilter:", profile.name, "| cuti:", profile.cuti, "| todaySession:", hasTodaySession, "| sessions:", profile.sessions.map(function(s) { return s.date; }));
-      return (profile.lessonDay === normalizedToday || profile.rescheduleDay === normalizedToday)
-        && !profile.cuti
-        && !hasTodaySession;
-    })
+      .filter(function(profile) {
+        const hasTodaySession = profile.sessions.some(function(s) { return s.date === todayDate; });
+        return (profile.lessonDay === normalizedToday || profile.rescheduleDay === normalizedToday)
+          && !profile.cuti
+          && !hasTodaySession;
+      })
     .sort(function(a, b) {
       const timeA = normalizeLessonTime(a.rescheduleTime || a.lessonTime);
       const timeB = normalizeLessonTime(b.rescheduleTime || b.lessonTime);
@@ -2334,25 +2333,38 @@ function ReportTab({ profile, lang, t }) {
   // Default to current month (not latest session month)
   var activeMonth = selectedMonth || currentMonth;
 
-  // Filter sessions by selected month
-  var sessions = allSessions.filter(function(s) { return monthKey(s.date) === activeMonth; });
-  sessions.sort(function(a, b) { return a.date < b.date ? 1 : -1; });
+    // Filter sessions by selected month
+    var sessions = allSessions.filter(function(s) { return monthKey(s.date) === activeMonth; });
+    sessions.sort(function(a, b) { return a.date < b.date ? 1 : -1; });
 
-  // Stats for the month
-  var totalLessons = sessions.length;
-  var hadir = sessions.filter(function(s) { return s.attendance === "Hadir"; }).length;
-  var izin = sessions.filter(function(s) { return s.attendance === "Izin"; }).length;
-  var libur = sessions.filter(function(s) { return s.attendance === "Libur" || s.attendance === "No-show"; }).length;
-  var totalDurasi = sessions.reduce(function(sum, s) { return sum + (s.duration || 0); }, 0);
+    // Group sessions by unique date so multi-row dates count as 1 lesson
+    var dateMap = {};
+    sessions.forEach(function(s) {
+      if (!dateMap[s.date]) dateMap[s.date] = { date: s.date, rows: [], attendance: s.attendance || "Hadir", duration: 0 };
+      dateMap[s.date].rows.push(s);
+      dateMap[s.date].duration += (s.duration || 0);
+      // If any row is "Hadir", the session counts as Hadir
+      if (s.attendance === "Hadir") dateMap[s.date].attendance = "Hadir";
+    });
+    var uniqueDates = Object.keys(dateMap).sort().reverse();
 
-  // Materials covered
-  var materiSet = {};
-  sessions.forEach(function(s) {
-    if (s.materi) materiSet[s.materi] = (materiSet[s.materi] || 0) + 1;
-  });
-  var topMaterials = Object.keys(materiSet).sort(function(a, b) { return materiSet[b] - materiSet[a]; }).slice(0, 8);
+    // Stats for the month (counted by unique dates)
+    var totalLessons = uniqueDates.length;
+    var hadir = uniqueDates.filter(function(d) { return dateMap[d].attendance === "Hadir"; }).length;
+    var izin = uniqueDates.filter(function(d) { return dateMap[d].attendance === "Izin"; }).length;
+    var libur = uniqueDates.filter(function(d) { return dateMap[d].attendance === "Libur" || dateMap[d].attendance === "No-show"; }).length;
+    var totalDurasi = uniqueDates.reduce(function(sum, d) { return sum + dateMap[d].duration; }, 0);
 
-  function attendancePct(count) { return totalLessons > 0 ? Math.round((count / totalLessons) * 100) : 0; }
+    // Materials covered (deduplicated per date)
+    var materiSet = {};
+    uniqueDates.forEach(function(d) {
+      dateMap[d].rows.forEach(function(s) {
+        if (s.materi) materiSet[s.materi] = (materiSet[s.materi] || 0) + 1;
+      });
+    });
+    var topMaterials = Object.keys(materiSet).sort(function(a, b) { return materiSet[b] - materiSet[a]; }).slice(0, 8);
+
+    function attendancePct(count) {
 
   function formatDuration(sec) {
     if (!sec || sec <= 0) return "0 menit";

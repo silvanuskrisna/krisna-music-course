@@ -44,8 +44,7 @@ export default function ProgressTab({ profile, lang, t }) {
   if (!curriculum) {
     return (
       <div style={{ padding:"2rem", textAlign:"center", color:"var(--color-text-tertiary)", fontSize:13 }}>
-        Belum ada kurikulum untuk {instrument}.<br />
-        (Gitar & Drum menyusul)
+        Belum ada kurikulum untuk {instrument}.
       </div>
     );
   }
@@ -246,8 +245,6 @@ export default function ProgressTab({ profile, lang, t }) {
             {/* Items */}
             {level.items.map(function(item) {
               var allSubSelesai = item.sub.every(function(s) { return getStatus(s.id) === "selesai"; });
-              var firstSub = item.sub[0];
-              var isFirstUnlocked = !firstSub || true; // first item is always unlocked
               return (
                 <div key={item.id} style={{ marginBottom:8, opacity: 1 }}>
                   <div style={{ fontSize:11, fontWeight: allSubSelesai ? 600 : 500, color:"var(--color-text-primary)", marginBottom:4 }}>
