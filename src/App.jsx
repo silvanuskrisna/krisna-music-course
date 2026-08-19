@@ -5,8 +5,8 @@ import ProgressTab from "./ProgressTab";
 
 const THEME_KEY = "mpt_theme";
 const DRAFT_PREFIX = "mpt_draft_";
-const INSTRUMENTS = ["Gitar", "Piano", "Drum"];
-const INST_ICON = { Gitar: "🎸", Piano: "🎹", Drum: "🥁" };
+const INSTRUMENTS = ["Gitar Akustik", "Gitar Elektrik", "Piano", "Drum"];
+const INST_ICON = { "Gitar Akustik": "🎸", "Gitar Elektrik": "🎸", Piano: "🎹", Drum: "🥁" };
 const LESSON_DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
 const ATTENDANCE_STATUSES = ["Hadir", "Izin", "No-show"];
 const SCORE_KEYS = ["timing", "technique", "reading", "expression"];
@@ -22,8 +22,13 @@ let sessionExtraColumnsAvailable = true;
 let cutiColumnAvailable = true;
 
 const MATERI = {
-  Gitar: {
-    "Teknik Dasar": ["Warm Up Session","Chord open","Chord barre","Scale pentatonik","Scale mayor/minor","Fingerpicking","Alternate picking","Legato & bending","Sweep picking"],
+  "Gitar Akustik": {
+    "Teknik Dasar": ["Warm Up Session","Chord open","Strumming patterns","Fingerpicking","Fingerstyle picking","Scale mayor/minor","Travis picking"],
+    "Repertoire": ["Lagu baru (belajar)","Lagu dihapal (review)","Lagu performa (polish)"],
+    "Teori": ["Interval & harmoni","Progresi chord","Analisis lagu","Rhythm & time feel","Mode & skala lanjut"],
+  },
+  "Gitar Elektrik": {
+    "Teknik Dasar": ["Warm Up Session","Chord barre","Power chord","Alternate picking","Palm mute","Legato & bending","Scale pentatonik","Sweep picking"],
     "Repertoire": ["Lagu baru (belajar)","Lagu dihapal (review)","Lagu performa (polish)"],
     "Teori": ["Interval & harmoni","Progresi chord","Analisis lagu","Rhythm & time feel","Mode & skala lanjut"],
   },
