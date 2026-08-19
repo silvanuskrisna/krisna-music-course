@@ -2404,23 +2404,23 @@ export const CURRICULUM = {
             },
             {
               "id": "gs-02",
-              "nama": "Pentatonic Minor Scale",
+              "nama": "Interval & Sequence Patterns",
               "sub": [
                 {
                   "id": "gs-02-a",
-                  "nama": "A minor pentatonic (box 1)"
+                  "nama": "Interval 2nd, 3rd, 4th, 5th pada satu senar"
                 },
                 {
                   "id": "gs-02-b",
-                  "nama": "Main naik turun pelan"
+                  "nama": "Interval pada adjacent strings"
                 },
                 {
                   "id": "gs-02-c",
-                  "nama": "Tambahkan hammer-on & pull-off"
+                  "nama": "Sequence naik turun 3-note"
                 },
                 {
                   "id": "gs-02-d",
-                  "nama": "Main bersama backing track"
+                  "nama": "Sequence dengan pola ritmik berbeda"
                 }
               ]
             }
@@ -2449,19 +2449,19 @@ export const CURRICULUM = {
             },
             {
               "id": "gs-04",
-              "nama": "Pentatonic Major Scale",
+              "nama": "Folk & Modal Patterns",
               "sub": [
                 {
                   "id": "gs-04-a",
-                  "nama": "C major pentatonic shape"
+                  "nama": "Ionian (mayor) pattern di posisi open"
                 },
                 {
                   "id": "gs-04-b",
-                  "nama": "Kaitkan dengan minor pentatonic"
+                  "nama": "Dorian pattern dengan karakter folk"
                 },
                 {
                   "id": "gs-04-c",
-                  "nama": "Main melodi sederhana"
+                  "nama": "Mixolydian pattern untuk lagu rakyat"
                 }
               ]
             }
@@ -2576,7 +2576,7 @@ export const CURRICULUM = {
               "sub": [
                 {
                   "id": "gs-10-a",
-                  "nama": "Improvisasi dengan pentatonic"
+                  "nama": "Improvisasi dengan motif & dinamika"
                 },
                 {
                   "id": "gs-10-b",
@@ -3055,29 +3055,29 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "ge-04-d",
-                  "nama": "Strumming dasar (down only)"
+                  "nama": "Palm mute dasar"
                 }
               ]
             },
             {
               "id": "ge-05",
-              "nama": "Strumming Patterns",
+              "nama": "Alternate Picking Patterns",
               "sub": [
                 {
                   "id": "ge-05-a",
-                  "nama": "Down-down-down-down (4/4)"
+                  "nama": "Inside picking vs outside picking"
                 },
                 {
                   "id": "ge-05-b",
-                  "nama": "Down-up-down-up (8th notes)"
+                  "nama": "Cross-string alternate picking"
                 },
                 {
                   "id": "ge-05-c",
-                  "nama": "Pattern dengan accent"
+                  "nama": "String skipping patterns"
                 },
                 {
                   "id": "ge-05-d",
-                  "nama": "Dynamic strumming (soft-loud)"
+                  "nama": "Alternate picking dengan metronome"
                 }
               ]
             }
@@ -3503,11 +3503,11 @@ export const CURRICULUM = {
               "sub": [
                 {
                   "id": "gc-04-a",
-                  "nama": "Reggae strumming pattern"
+                  "nama": "Reggae rhythm (chops & skank)"
                 },
                 {
                   "id": "gc-04-b",
-                  "nama": "Funk strumming (16th notes)"
+                  "nama": "Funk rhythm (16th note chanking with muting)"
                 },
                 {
                   "id": "gc-04-c",
