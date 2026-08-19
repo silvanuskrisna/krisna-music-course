@@ -2404,23 +2404,23 @@ export const CURRICULUM = {
             },
             {
               "id": "gs-02",
-              "nama": "Interval & Sequence Patterns",
+              "nama": "Melody with Open Strings",
               "sub": [
                 {
                   "id": "gs-02-a",
-                  "nama": "Interval 2nd, 3rd, 4th, 5th pada satu senar"
+                  "nama": "Open string sebagai drone (bass terus-menerus)"
                 },
                 {
                   "id": "gs-02-b",
-                  "nama": "Interval pada adjacent strings"
+                  "nama": "Melodi sederhana dengan open string drone"
                 },
                 {
                   "id": "gs-02-c",
-                  "nama": "Sequence naik turun 3-note"
+                  "nama": "Campuran picked & open string dalam satu frase"
                 },
                 {
                   "id": "gs-02-d",
-                  "nama": "Sequence dengan pola ritmik berbeda"
+                  "nama": "Latihan koordinasi melody + drone string"
                 }
               ]
             }
