@@ -2370,8 +2370,10 @@ function ReportTab({ profile, lang, t }) {
     var topMaterials = Object.keys(materiSet).sort(function(a, b) { return materiSet[b] - materiSet[a]; }).slice(0, 8);
 
     function attendancePct(count) {
+          return totalLessons > 0 ? Math.round((count / totalLessons) * 100) : 0;
+        }
 
-  function formatDuration(sec) {
+      function formatDuration(sec) {
     if (!sec || sec <= 0) return "0 menit";
     var min = Math.round(sec / 60);
     if (min < 60) return min + " menit";
