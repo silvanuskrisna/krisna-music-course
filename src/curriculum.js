@@ -2398,7 +2398,7 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "gs-01-d",
-                  "nama": "Main naik turun dengan picking konsisten"
+                  "nama": "Main naik turun dengan petikan konsisten (fingerstyle)"
                 }
               ]
             },
@@ -2416,7 +2416,7 @@ export const CURRICULUM = {
                 },
                 {
                   "id": "gs-02-c",
-                  "nama": "Campuran picked & open string dalam satu frase"
+                  "nama": "Campuran nada biasa & open string dalam satu frase"
                 },
                 {
                   "id": "gs-02-d",
